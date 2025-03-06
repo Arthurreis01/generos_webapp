@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Guara-system - Controle de POs</title>
+  <!-- Link to external CSS -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Bootstrap Icons for buttons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+<body>
+  <!-- Navbar (fixed) -->
+  <div class="navbar">
+    <div class="logo">
+      <img src="logo.png" alt="Logo">
+      <h1>Guara-system</h1>
+      <h2 id="csup"> Centro de Suprimentos do Abastecimento</h2>
+    </div>
+    <div class="menu">
+      <a href="index.html">Licitações</a>
+      <a href="po.html" class="active">Controle de POs</a>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- PO Board Section Only -->
+    <section id="poBoard">
+      <div class="section-header">
+        <h2 class="titles">Controle de POs</h2>
+        <div class="search-container">
+          <input type="text" id="poSearch" placeholder="Pesquisar POs...">
+          <button class="export-btn" id="exportPOBtn">Exportar</button>
+          <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
+            <i class="bi bi-question-circle"></i>
+          </a>
+        </div>
+      </div>
+      <div class="kanban-board">
+        <div class="kanban-column" id="colNew">
+          <h3>Novo PO</h3>
+          <div class="column-content" id="newPOs"></div>
+        </div>
+        <div class="kanban-column" id="colOC">
+          <h3>OC</h3>
+          <div class="column-content" id="ocPOs"></div>
+        </div>
+        <div class="kanban-column" id="colAccepted">
+          <h3>Com Data de Aceite</h3>
+          <div class="column-content" id="acceptedPOs"></div>
+        </div>
+        <div class="kanban-column" id="colAlert">
+          <h3>Alertas</h3>
+          <div class="column-content" id="alertPOs"></div>
+        </div>
+        <div class="kanban-column" id="colArchived">
+          <h3>Arquivados</h3>
+          <div class="column-content" id="archivedPOs"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Floating Action Button and Menu -->
+  <div class="fab">+</div>
+  <div class="fab-menu" id="fabMenu">
+    <button id="btnNewLicitacao">Adicionar nova licitação</button>
+    <button id="btnNewPO">Adicionar novo PO</button>
+    <a href="#estoque">Inserir estoque atualizado</a>
+  </div>
+
+  <!-- Modals (duplicate everything) -->
+  <!-- Modal: Nova Licitação -->
+  <div class="modal-overlay" id="modalLicitacao">
+    <div class="modal">
+      <h2>Nova Licitação</h2>
+      <form id="formLicitacao">
+        <input type="text" name="numeroProcesso" placeholder="Número do Processo" required>
+        <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
+        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
+        <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
+        <input type="date" name="vencimentoAta" required>
+        <input type="text" name="status" placeholder="Status da licitação" required>
+        <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        <!-- Categoria -->
+        <label for="categoria">Categoria</label>
+        <select name="categoria" required>
+          <option value="Frigorificados">Frigorificados</option>
+          <option value="Secos">Secos</option>
+        </select>
+        <button type="submit">Salvar</button>
+      </form>
+      <button class="closeModal" data-modal="modalLicitacao">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Licitação -->
+  <div class="modal-overlay" id="modalEditLicitacao">
+    <div class="modal">
+      <h2>Editar Licitação</h2>
+      <form id="formEditLicitacao">
+        <input type="hidden" name="id">
+        <input type="text" name="numeroProcesso" placeholder="Número do Processo" required>
+        <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
+        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
+        <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
+        <input type="date" name="vencimentoAta" required>
+        <input type="text" name="status" placeholder="Status da licitação" required>
+        <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        <!-- Categoria -->
+        <label for="categoria">Categoria</label>
+        <select name="categoria" required>
+          <option value="Frigorificados">Frigorificados</option>
+          <option value="Secos">Secos</option>
+        </select>
+        <button type="submit">Salvar Alterações</button>
+      </form>
+      <button class="closeModal" data-modal="modalEditLicitacao">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Novo PO -->
+  <div class="modal-overlay" id="modalPO">
+    <div class="modal">
+      <h2>Novo PO</h2>
+      <form id="formPO">
+        <label for="elemento">Elemento</label>
+        <input type="text" name="elemento" placeholder="Ex: 135467" required>
+        <label for="prioridade">Prioridade</label>
+        <select name="prioridade" required>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Normal">Normal</option>
+          <option value="Low">Low</option>
+        </select>
+        <label for="data">Data</label>
+        <input type="date" name="data" required>
+        <label for="status">Status</label>
+        <select name="status" required>
+          <option value="New">New</option>
+        </select>
+        <label for="valor">Valor</label>
+        <input type="number" name="valor" placeholder="Valor do PO" required>
+        <label for="arquivos">Arquivos</label>
+        <input type="text" name="arquivos" placeholder="Nome do arquivo ou link">
+        <label for="observacoes">Observações</label>
+        <textarea name="observacoes" placeholder="Comentários ou observações"></textarea>
+        <label for="licitacaoId">Selecione a Licitação</label>
+        <select name="licitacaoId" id="licitacaoSelect" required>
+          <!-- Options populated dynamically -->
+        </select>
+        <button type="submit">Salvar</button>
+      </form>
+      <button class="closeModal" data-modal="modalPO">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Edit PO -->
+  <div class="modal-overlay" id="modalEditPO">
+    <div class="modal">
+      <h2>Editar PO</h2>
+      <form id="formEditPO">
+        <input type="hidden" name="index">
+        <label for="elemento">Elemento</label>
+        <input type="text" name="elemento" required>
+        <label for="prioridade">Prioridade</label>
+        <select name="prioridade" required>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Normal">Normal</option>
+          <option value="Low">Low</option>
+        </select>
+        <label for="data">Data</label>
+        <input type="date" name="data" required>
+        <label for="status">Status</label>
+        <select name="status" required>
+          <option value="New">New</option>
+          <option value="OC">OC</option>
+          <option value="Waiting">Waiting</option>
+          <option value="Problem">Problem</option>
+          <option value="Accepted">Accepted</option>
+        </select>
+        <label for="valor">Valor</label>
+        <input type="number" name="valor" required>
+        <label for="arquivos">Arquivos</label>
+        <input type="text" name="arquivos">
+        <label for="observacoes">Observações</label>
+        <textarea name="observacoes"></textarea>
+        <label for="editLicitacaoSelect">Selecione a Licitação</label>
+        <select name="licitacaoId" id="editLicitacaoSelect" required>
+          <!-- Populated dynamically -->
+        </select>
+        <button type="submit">Salvar Alterações</button>
+      </form>
+      <button class="closeModal" data-modal="modalEditPO">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Verificar OCs -->
+  <div class="modal-overlay" id="modalVerificarOCs">
+    <div class="modal" id="OCmodal">
+      <h2>OCs desta Licitação</h2>
+      <div class="ocs-table-container">
+        <table class="table" id="tableVerificarOCs">
+          <thead>
+            <tr>
+              <th>Elemento</th>
+              <th>Prioridade</th>
+              <th>Data</th>
+              <th>Status</th>
+              <th>Valor</th>
+              <th>Arquivos</th>
+              <th>Observações</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Filled dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <button class="closeModal" data-modal="modalVerificarOCs">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Comentários (Chat) -->
+  <div class="modal-overlay" id="modalComentarios">
+    <div class="modal modal-comentarios">
+      <h2>Comentários</h2>
+      <div id="chatMessages" class="chat-messages">
+        <!-- Chat bubbles appear here -->
+      </div>
+      <form id="formComentarios" class="chat-input-form">
+        <input type="hidden" name="licitacaoId">
+        <input type="text" name="newMessage" placeholder="Digite uma mensagem..." required>
+        <button type="submit">Enviar</button>
+      </form>
+      <button class="closeModal" data-modal="modalComentarios">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: PO Details -->
+  <div class="modal-overlay" id="modalPODetails">
+    <div class="modal">
+      <h2>Detalhes do PO</h2>
+      <div id="poDetailContent">
+        <!-- PO details will be injected here -->
+      </div>
+      <button class="closeModal" data-modal="modalPODetails">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Additional Import Estoque elements -->
+  <button id="btnImportEstoque">Importar Estoque</button>
+  <input type="file" id="fileEstoque" style="display: none">
+
+  <!-- Main Logic (External JS) -->
+  <script src="script.js"></script>
+</body>
+</html>

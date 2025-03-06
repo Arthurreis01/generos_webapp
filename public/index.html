@@ -2,65 +2,56 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Guara-system - PO Workflow</title>
+  <title>Guara-system - Licitações</title>
+  <!-- Link to external CSS -->
+  <link rel="stylesheet" href="style.css">
   <!-- Bootstrap Icons for buttons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-  <!-- Optional favicon (if missing, 404 is harmless) -->
-  <!-- <link rel="icon" href="img/favicon.ico" type="image/x-icon"> -->
-  <link rel="stylesheet" href="style.css">
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 </head>
 <body>
-  <!-- Navbar -->
+  <!-- Navbar (fixed) -->
   <div class="navbar">
     <div class="logo">
       <img src="logo.png" alt="Logo">
       <h1>Guara-system</h1>
+      <h2 id="csup"> Centro de Suprimentos do Abastecimento</h2>
     </div>
     <div class="menu">
-      <a href="#licitacoes">Licitações</a>
-      <a href="#poBoard">Controle de POs</a>
-      <a href="#estoque">Estoque</a>
+      <a href="index.html" class="active">Licitações</a>
+      <a href="po.html">Controle de POs</a>
     </div>
   </div>
 
   <!-- Main Container -->
   <div class="container">
-    <!-- Search Bar for Licitações -->
-    <div class="search-container">
-      <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
-    </div>
-    <!-- Licitações Section -->
+    <!-- Licitações Section Only -->
     <section id="licitacoes">
-      <h2>Licitações</h2>
-      <div class="card-grid" id="licitacaoCards">
-        <!-- Licitação cards are rendered here -->
+      <!-- Category Toggle at the top -->
+      <div class="category-toggle">
+        <input type="radio" name="filterCategory" value="all" id="filterAll" checked>
+        <label for="filterAll" class="toggle-option">Todos</label>
+        <input type="radio" name="filterCategory" value="Frigorificados" id="filterFrigorificados">
+        <label for="filterFrigorificados" class="toggle-option">Frigorificados</label>
+        <input type="radio" name="filterCategory" value="Secos" id="filterSecos">
+        <label for="filterSecos" class="toggle-option">Secos</label>
       </div>
-    </section>
-
-    <!-- Search Bar for PO Board -->
-    <div class="search-container">
-      <input type="text" id="poSearch" placeholder="Pesquisar POs...">
-    </div>
-    <!-- PO Kanban Board Section -->
-    <section id="poBoard">
-      <h2>Controle de POs</h2>
-      <div class="kanban-board">
-        <div class="kanban-column" id="colNew">
-          <h3>New</h3>
-          <div class="column-content" id="newPOs"></div>
+      <div class="section-header">
+        <div class="search-container">
+          <!-- Licitações Search -->
+          <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
+          <!-- Export CSV button -->
+          <button class="export-btn" id="exportLicitacoesBtn">Exportar</button>
+          <!-- "?" help link -->
+          <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
+            <i class="bi bi-question-circle"></i>
+          </a>
         </div>
-        <div class="kanban-column" id="colOC">
-          <h3>OC</h3>
-          <div class="column-content" id="ocPOs"></div>
-        </div>
-        <div class="kanban-column" id="colAccepted">
-          <h3>Accepted</h3>
-          <div class="column-content" id="acceptedPOs"></div>
-        </div>
-        <div class="kanban-column" id="colAlert">
-          <h3>Alert</h3>
-          <div class="column-content" id="alertPOs"></div>
-        </div>
+      </div>
+      <div class="card-grid" id="licitacaoCards">
+        <!-- Licitação cards (with gauge & new details button) are rendered by script.js -->
       </div>
     </section>
   </div>
@@ -75,7 +66,7 @@
 
   <!-- Modals -->
 
-  <!-- Modal: Nova Licitação -->
+  <!-- Modal: Nova Licitação (with CMM field) -->
   <div class="modal-overlay" id="modalLicitacao">
     <div class="modal">
       <h2>Nova Licitação</h2>
@@ -87,13 +78,24 @@
         <input type="date" name="vencimentoAta" required>
         <input type="text" name="status" placeholder="Status da licitação" required>
         <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        
+        <!-- Categoria -->
+        <label for="categoria">Categoria</label>
+        <select name="categoria" required>
+          <option value="Frigorificados">Frigorificados</option>
+          <option value="Secos">Secos</option>
+        </select>
+
+        <!-- NEW: CMM Field -->
+        <input type="number" name="cmm" placeholder="CMM (Consumo Mensal Médio)" step="0.01" required>
+
         <button type="submit">Salvar</button>
       </form>
       <button class="closeModal" data-modal="modalLicitacao">Fechar</button>
     </div>
   </div>
 
-  <!-- Modal: Edit Licitação -->
+  <!-- Modal: Edit Licitação (with CMM field) -->
   <div class="modal-overlay" id="modalEditLicitacao">
     <div class="modal">
       <h2>Editar Licitação</h2>
@@ -106,6 +108,17 @@
         <input type="date" name="vencimentoAta" required>
         <input type="text" name="status" placeholder="Status da licitação" required>
         <input type="number" name="balance" placeholder="Saldo da licitação" required>
+
+        <!-- Categoria -->
+        <label for="categoria">Categoria</label>
+        <select name="categoria" required>
+          <option value="Frigorificados">Frigorificados</option>
+          <option value="Secos">Secos</option>
+        </select>
+
+        <!-- NEW: CMM Field -->
+        <input type="number" name="cmm" placeholder="CMM (Consumo Mensal Médio)" step="0.01" required>
+
         <button type="submit">Salvar Alterações</button>
       </form>
       <button class="closeModal" data-modal="modalEditLicitacao">Fechar</button>
@@ -119,7 +132,7 @@
       <form id="formPO">
         <label for="elemento">Elemento</label>
         <input type="text" name="elemento" placeholder="Ex: 135467" required>
-        
+
         <label for="prioridade">Prioridade</label>
         <select name="prioridade" required>
           <option value="Critical">Critical</option>
@@ -127,30 +140,28 @@
           <option value="Normal">Normal</option>
           <option value="Low">Low</option>
         </select>
-        
+
         <label for="data">Data</label>
         <input type="date" name="data" required>
-        
-        <!-- New PO always starts as "New" -->
+
         <label for="status">Status</label>
         <select name="status" required>
           <option value="New">New</option>
         </select>
-        
+
         <label for="valor">Valor</label>
         <input type="number" name="valor" placeholder="Valor do PO" required>
-        
+
         <label for="arquivos">Arquivos</label>
         <input type="text" name="arquivos" placeholder="Nome do arquivo ou link">
-        
+
         <label for="observacoes">Observações</label>
         <textarea name="observacoes" placeholder="Comentários ou observações"></textarea>
-        
+
         <label for="licitacaoId">Selecione a Licitação</label>
         <select name="licitacaoId" id="licitacaoSelect" required>
           <!-- Options populated dynamically -->
         </select>
-        
         <button type="submit">Salvar</button>
       </form>
       <button class="closeModal" data-modal="modalPO">Fechar</button>
@@ -163,10 +174,10 @@
       <h2>Editar PO</h2>
       <form id="formEditPO">
         <input type="hidden" name="index">
-        
+
         <label for="elemento">Elemento</label>
         <input type="text" name="elemento" required>
-        
+
         <label for="prioridade">Prioridade</label>
         <select name="prioridade" required>
           <option value="Critical">Critical</option>
@@ -174,10 +185,10 @@
           <option value="Normal">Normal</option>
           <option value="Low">Low</option>
         </select>
-        
+
         <label for="data">Data</label>
         <input type="date" name="data" required>
-        
+
         <label for="status">Status</label>
         <select name="status" required>
           <option value="New">New</option>
@@ -186,21 +197,20 @@
           <option value="Problem">Problem</option>
           <option value="Accepted">Accepted</option>
         </select>
-        
+
         <label for="valor">Valor</label>
         <input type="number" name="valor" required>
-        
+
         <label for="arquivos">Arquivos</label>
         <input type="text" name="arquivos">
-        
+
         <label for="observacoes">Observações</label>
         <textarea name="observacoes"></textarea>
-        
+
         <label for="editLicitacaoSelect">Selecione a Licitação</label>
         <select name="licitacaoId" id="editLicitacaoSelect" required>
           <!-- Populated dynamically -->
         </select>
-        
         <button type="submit">Salvar Alterações</button>
       </form>
       <button class="closeModal" data-modal="modalEditPO">Fechar</button>
@@ -209,7 +219,7 @@
 
   <!-- Modal: Verificar OCs -->
   <div class="modal-overlay" id="modalVerificarOCs">
-    <div class="modal">
+    <div class="modal" id="OCmodal">
       <h2>OCs desta Licitação</h2>
       <div class="ocs-table-container">
         <table class="table" id="tableVerificarOCs">
@@ -250,6 +260,33 @@
     </div>
   </div>
 
+  <!-- Modal: PO Details -->
+  <div class="modal-overlay" id="modalPODetails">
+    <div class="modal">
+      <h2>Detalhes do PO</h2>
+      <div id="poDetailContent">
+        <!-- PO details will be injected here (including date, valor, licitação name, rastreio) -->
+      </div>
+      <button class="closeModal" data-modal="modalPODetails">Fechar</button>
+    </div>
+  </div>
+
+  <!-- NEW: Modal for Licitação Info -->
+  <div class="modal-overlay" id="modalLicitacaoInfo">
+    <div class="modal">
+      <h2>Detalhes da Licitação</h2>
+      <div id="licitacaoInfoContent">
+        <!-- We'll inject (numeroProcesso, nomeEmpresa, telefoneEmpresa) here via script.js -->
+      </div>
+      <button class="closeModal" data-modal="modalLicitacaoInfo">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Additional Import Estoque elements -->
+  <button id="btnImportEstoque">Importar Estoque</button>
+  <input type="file" id="fileEstoque" style="display: none">
+
+  <!-- Main Logic (External JS) -->
   <script src="script.js"></script>
 </body>
 </html>

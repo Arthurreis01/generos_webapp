@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Guara-system - Como Usar</title>
+  <link rel="stylesheet" href="help.css">
+  <!-- Bootstrap Icons (optional) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="logo.png" alt="Logo">
+        <h1>Guara-system</h1>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Dashboard</a></li>
+        <li><a href="help.html" class="active">Ajuda</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container">
+    <div class="help-card">
+      <h2>Como Usar o Guara-system</h2>
+      <p>Bem-vindo ao Guara-system! Este webapp foi desenvolvido para gerenciar Licitações e POs de forma rápida e eficiente. Siga as instruções abaixo para tirar o máximo proveito do sistema.</p>
+      
+      <h3>1. Acesso ao Sistema</h3>
+      <p>Ao acessar, você será solicitado a inserir a senha. Use a senha fornecida para continuar.</p>
+      
+      <h3>2. Gerenciamento de Licitações</h3>
+      <ul>
+        <li><strong>Adicionar Nova Licitação:</strong> Clique em <em>"Adicionar nova licitação"</em> no menu flutuante. Preencha os campos obrigatórios, incluindo o <em>CMM</em> (Consumo Mensal Médio) e o <em>Saldo (Disp. p/ lib)</em>. A <strong>Autonomia</strong> será calculada automaticamente dividindo o CMM pelo Saldo.</li>
+        <li><strong>Editar/Excluir:</strong> Utilize os ícones de lápis e lixeira em cada cartão para editar ou excluir uma licitação.</li>
+        <li><strong>Exportar Dados:</strong> Use o botão <i class="bi bi-file-earmark-excel"></i> "Exportar" para baixar os dados em formato Excel (.xls).</li>
+        <li><strong>Importar Estoque:</strong> Clique no botão <em>"Importar Estoque"</em> para carregar uma planilha CSV. O arquivo deve conter as colunas <strong>NOME_ITEM</strong> e <strong>QTDE_DISPONIVEL</strong>, que serão usadas para atualizar o saldo (Disp. p/ lib).</li>
+      </ul>
+      
+      <h3>3. Gerenciamento de POs</h3>
+      <ul>
+        <li><strong>Adicionar Novo PO:</strong> Clique em <em>"Adicionar novo PO"</em> e preencha o formulário. Selecione a licitação relacionada.</li>
+        <li><strong>Converter PO para OC:</strong> No cartão do PO, clique no botão para converter o PO em OC e insira o número da OC quando solicitado.</li>
+        <li><strong>Editar/Excluir/Arquivar:</strong> Utilize os ícones correspondentes para editar, excluir ou arquivar POs.</li>
+        <li><strong>Exportar Dados:</strong> Clique no botão <i class="bi bi-file-earmark-excel"></i> "Exportar" para baixar os dados de POs em formato Excel (.xls).</li>
+      </ul>
+      
+      <h3>4. Pesquisa e Filtros</h3>
+      <p>Use as barras de pesquisa para filtrar por nome e a categoria (Todos, Frigorificados ou Secos) para refinar os resultados.</p>
+      
+      <h3>5. Comentários e Verificação de OCs</h3>
+      <ul>
+        <li><strong>Comentários:</strong> Clique no ícone de chat em cada licitação para visualizar e adicionar comentários.</li>
+        <li><strong>Ver OCs:</strong> Clique em <em>"Verificar OCs"</em> para visualizar os OCs associados à licitação.</li>
+      </ul>
+      
+      <p>Se precisar de mais assistência, entre em contato com o suporte.</p>
+    </div>
+  </main>
+  <footer>
+    <p>&copy; 2025 Guara-system. Todos os direitos reservados.</p>
+  </footer>
+</body>
+</html>
