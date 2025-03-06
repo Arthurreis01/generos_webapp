@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Guara-system - Controle de PO</title>
+  <!-- Bootstrap Icons for buttons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <!-- Optional favicon (if missing, 404 is harmless) -->
+  <!-- <link rel="icon" href="img/favicon.ico" type="image/x-icon"> -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="logo">
+      <img src="logo.png" alt="Logo">
+      <h1>Guara-system</h1>
+    </div>
+    <div class="menu">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="po.html">Controle de POs</a>
+      <a href="#estoque">Estoque</a>
+    </div>
+  </div>
+
+  <!-- Main Container (Controle de PO) -->
+  <div class="container">
+    <!-- Search Bar for PO Board -->
+    <div class="search-container">
+      <input type="text" id="poSearch" placeholder="Pesquisar POs...">
+    </div>
+    <!-- PO Kanban Board Section -->
+    <section id="poBoard">
+      <h2>Controle de POs</h2>
+      <div class="kanban-board">
+        <div class="kanban-column" id="colNew">
+          <h3>New</h3>
+          <div class="column-content" id="newPOs"></div>
+        </div>
+        <div class="kanban-column" id="colOC">
+          <h3>OC</h3>
+          <div class="column-content" id="ocPOs"></div>
+        </div>
+        <div class="kanban-column" id="colAccepted">
+          <h3>Accepted</h3>
+          <div class="column-content" id="acceptedPOs"></div>
+        </div>
+        <div class="kanban-column" id="colAlert">
+          <h3>Alert</h3>
+          <div class="column-content" id="alertPOs"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Floating Action Button and Menu -->
+  <div class="fab">+</div>
+  <div class="fab-menu" id="fabMenu">
+    <button id="btnNewPO">Adicionar novo PO</button>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="#estoque">Inserir estoque atualizado</a>
+  </div>
+
+  <!-- Modals for PO -->
+
+  <!-- Modal: Novo PO -->
+  <div class="modal-overlay" id="modalPO">
+    <div class="modal">
+      <h2>Novo PO</h2>
+      <form id="formPO">
+        <label for="elemento">Elemento</label>
+        <input type="text" name="elemento" placeholder="Ex: 135467" required>
+        
+        <label for="prioridade">Prioridade</label>
+        <select name="prioridade" required>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Normal">Normal</option>
+          <option value="Low">Low</option>
+        </select>
+        
+        <label for="data">Data</label>
+        <input type="date" name="data" required>
+        
+        <!-- New PO always starts as "New" -->
+        <label for="status">Status</label>
+        <select name="status" required>
+          <option value="New">New</option>
+        </select>
+        
+        <label for="valor">Valor</label>
+        <input type="number" name="valor" placeholder="Valor do PO" required>
+        
+        <label for="arquivos">Arquivos</label>
+        <input type="text" name="arquivos" placeholder="Nome do arquivo ou link">
+        
+        <label for="observacoes">Observações</label>
+        <textarea name="observacoes" placeholder="Comentários ou observações"></textarea>
+        
+        <label for="licitacaoId">Selecione a Licitação</label>
+        <select name="licitacaoId" id="licitacaoSelect" required>
+          <!-- Options populated dynamically -->
+        </select>
+        
+        <button type="submit">Salvar</button>
+      </form>
+      <button class="closeModal" data-modal="modalPO">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Edit PO -->
+  <div class="modal-overlay" id="modalEditPO">
+    <div class="modal">
+      <h2>Editar PO</h2>
+      <form id="formEditPO">
+        <input type="hidden" name="index">
+        
+        <label for="elemento">Elemento</label>
+        <input type="text" name="elemento" required>
+        
+        <label for="prioridade">Prioridade</label>
+        <select name="prioridade" required>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Normal">Normal</option>
+          <option value="Low">Low</option>
+        </select>
+        
+        <label for="data">Data</label>
+        <input type="date" name="data" required>
+        
+        <label for="status">Status</label>
+        <select name="status" required>
+          <option value="New">New</option>
+          <option value="OC">OC</option>
+          <option value="Waiting">Waiting</option>
+          <option value="Problem">Problem</option>
+          <option value="Accepted">Accepted</option>
+        </select>
+        
+        <label for="valor">Valor</label>
+        <input type="number" name="valor" required>
+        
+        <label for="arquivos">Arquivos</label>
+        <input type="text" name="arquivos">
+        
+        <label for="observacoes">Observações</label>
+        <textarea name="observacoes"></textarea>
+        
+        <label for="editLicitacaoSelect">Selecione a Licitação</label>
+        <select name="licitacaoId" id="editLicitacaoSelect" required>
+          <!-- Populated dynamically -->
+        </select>
+        
+        <button type="submit">Salvar Alterações</button>
+      </form>
+      <button class="closeModal" data-modal="modalEditPO">Fechar</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
