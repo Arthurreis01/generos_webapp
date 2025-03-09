@@ -3,39 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <title>Registrar - Guara-system</title>
-  <link rel="stylesheet" href="style.css">
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <style>
-    /* Centered box design similar to login page */
+    /* Full-screen background image */
     body {
-      background-color: #f8f9fa;
+      margin: 0;
+      padding: 0;
+      /* Adjust the path "guara-login.jpg" to where your file actually is */
+      background: url("guara-login.jpg") no-repeat center center;
+      background-size: cover;
+      font-family: Arial, sans-serif;
+
+      /* Center the box horizontally & vertically */
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      margin: 0;
     }
+
     .register-box {
-      background-color: #fff;
-      border: 1px solid #ddd;
+      background-color: rgb(255, 255, 255);
       border-radius: 8px;
       padding: 2rem;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       width: 300px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
+
     .register-box h2 {
       text-align: center;
       color: #007bff;
       margin-bottom: 1rem;
     }
+
     .register-box input {
       width: 100%;
       padding: 0.5rem;
       margin-bottom: 1rem;
       border: 1px solid #ddd;
       border-radius: 4px;
+      font-size: 1rem;
     }
+
     .register-box button {
       width: 100%;
       padding: 0.5rem;
@@ -44,16 +53,21 @@
       border-radius: 4px;
       color: #fff;
       font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
     }
+
     .register-box button:hover {
       background-color: #0056b3;
     }
-    .register-box .error {
+
+    .error {
       color: red;
       text-align: center;
       margin-bottom: 1rem;
     }
-    .register-box .link {
+
+    .link {
       text-align: center;
       margin-top: 1rem;
     }
@@ -69,12 +83,12 @@
       <button type="submit">Registrar</button>
     </form>
     <div class="link">
-      <a href="login.html">Já possui conta? Faça login</a>
+      <a href="index.html" style="color: #007bff; text-decoration: none;">Já possui conta? Faça login</a>
     </div>
   </div>
 
   <script>
-    // Firebase configuration – use the same configuration as in your login page
+    // Firebase configuration – same as in your login page
     var firebaseConfig = {
     apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
     authDomain: "generos-webapp.firebaseapp.com",
