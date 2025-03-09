@@ -15,7 +15,7 @@
         <h1>Guara-system</h1>
       </div>
       <ul class="nav-links">
-        <li><a href="index.html">Dashboard</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
         <li><a href="help.html" class="active">Ajuda</a></li>
       </ul>
     </nav>
@@ -25,18 +25,28 @@
       <h2>Como Usar o Guara-system</h2>
       <p>Bem-vindo ao Guara-system! Este webapp foi desenvolvido para gerenciar Licitações e POs de forma rápida e eficiente. Siga as instruções abaixo para tirar o máximo proveito do sistema.</p>
       
-      <h3>1. Acesso ao Sistema</h3>
-      <p>Ao acessar, você será solicitado a inserir a senha. Use a senha fornecida para continuar.</p>
-      
-      <h3>2. Gerenciamento de Licitações</h3>
+      <h3>1. Acesso ao Sistema e Login</h3>
       <ul>
-        <li><strong>Adicionar Nova Licitação:</strong> Clique em <em>"Adicionar nova licitação"</em> no menu flutuante. Preencha os campos obrigatórios, incluindo o <em>CMM</em> (Consumo Mensal Médio) e o <em>Saldo (Disp. p/ lib)</em>. A <strong>Autonomia</strong> será calculada automaticamente dividindo o CMM pelo Saldo.</li>
-        <li><strong>Editar/Excluir:</strong> Utilize os ícones de lápis e lixeira em cada cartão para editar ou excluir uma licitação.</li>
-        <li><strong>Exportar Dados:</strong> Use o botão <i class="bi bi-file-earmark-excel"></i> "Exportar" para baixar os dados em formato Excel (.xls).</li>
-        <li><strong>Importar Estoque:</strong> Clique no botão <em>"Importar Estoque"</em> para carregar uma planilha CSV. O arquivo deve conter as colunas <strong>NOME_ITEM</strong> e <strong>QTDE_DISPONIVEL</strong>, que serão usadas para atualizar o saldo (Disp. p/ lib).</li>
+        <li>Ao acessar o sistema, você será redirecionado para a página de login, onde deverá inserir seu email e senha.</li>
+        <li>Se ainda não possuir uma conta, clique em <em>"Criar conta"</em> para se registrar.</li>
       </ul>
       
-      <h3>3. Gerenciamento de POs</h3>
+      <h3>2. Navegação no Dashboard</h3>
+      <ul>
+        <li>Após o login, você será direcionado ao <strong>Dashboard</strong>, onde as licitações cadastradas são exibidas.</li>
+        <li>Utilize o menu superior para alternar entre <strong>Licitações</strong> (Dashboard) e <strong>Controle de POs</strong>.</li>
+        <li>O ícone de perfil (representado por <i class="bi bi-person-circle"></i>) no canto superior direito permite acessar as opções de <strong>Resetar Senha</strong> e <strong>Sair</strong>.</li>
+      </ul>
+      
+      <h3>3. Gerenciamento de Licitações</h3>
+      <ul>
+        <li><strong>Adicionar Nova Licitação:</strong> Clique em <em>"Adicionar nova licitação"</em> no menu flutuante. Preencha os campos obrigatórios, incluindo o <em>CMM (Consumo Mensal Médio)</em> e o <em>Saldo (Disp. p/lib)</em>. A <strong>Autonomia</strong> é calculada automaticamente (Saldo ÷ CMM).</li>
+        <li><strong>Editar/Excluir:</strong> Utilize os ícones de lápis e lixeira em cada cartão para editar ou excluir uma licitação.</li>
+        <li><strong>Exportar Dados:</strong> Clique no botão <i class="bi bi-file-earmark-excel"></i> "Exportar" para baixar os dados em formato Excel (.xls).</li>
+        <li><strong>Importar Estoque:</strong> Use o botão <em>"Importar Estoque"</em> para carregar uma planilha (CSV ou Excel) com as colunas <strong>NOME_ITEM</strong> e <strong>QTDE_DISPONIVEL</strong> para atualizar o saldo.</li>
+      </ul>
+      
+      <h3>4. Gerenciamento de POs</h3>
       <ul>
         <li><strong>Adicionar Novo PO:</strong> Clique em <em>"Adicionar novo PO"</em> e preencha o formulário. Selecione a licitação relacionada.</li>
         <li><strong>Converter PO para OC:</strong> No cartão do PO, clique no botão para converter o PO em OC e insira o número da OC quando solicitado.</li>
@@ -44,13 +54,19 @@
         <li><strong>Exportar Dados:</strong> Clique no botão <i class="bi bi-file-earmark-excel"></i> "Exportar" para baixar os dados de POs em formato Excel (.xls).</li>
       </ul>
       
-      <h3>4. Pesquisa e Filtros</h3>
-      <p>Use as barras de pesquisa para filtrar por nome e a categoria (Todos, Frigorificados ou Secos) para refinar os resultados.</p>
+      <h3>5. Pesquisa e Filtros</h3>
+      <p>Utilize as barras de pesquisa para filtrar licitações ou POs por nome. Você também pode usar os filtros por categoria (Todos, Frigorificados ou Secos) para refinar os resultados.</p>
       
-      <h3>5. Comentários e Verificação de OCs</h3>
+      <h3>6. Comentários e Verificação de OCs</h3>
       <ul>
-        <li><strong>Comentários:</strong> Clique no ícone de chat em cada licitação para visualizar e adicionar comentários.</li>
-        <li><strong>Ver OCs:</strong> Clique em <em>"Verificar OCs"</em> para visualizar os OCs associados à licitação.</li>
+        <li><strong>Comentários:</strong> Clique no ícone de chat (<i class="bi bi-chat-dots"></i>) em cada licitação para visualizar e adicionar comentários.</li>
+        <li><strong>Verificar OCs:</strong> Clique em <em>"Verificar OCs"</em> para visualizar os OCs associados à licitação, incluindo os que estão aguardando aceite e os arquivados para controle.</li>
+      </ul>
+      
+      <h3>7. Perfil e Segurança</h3>
+      <ul>
+        <li>Acesse o menu de perfil clicando no ícone <i class="bi bi-person-circle"></i> no canto superior direito.</li>
+        <li>Utilize as opções para <strong>Resetar Senha</strong> e <strong>Sair</strong> do sistema.</li>
       </ul>
       
       <p>Se precisar de mais assistência, entre em contato com o suporte.</p>

@@ -3,12 +3,16 @@
     "public": "public",
     "rewrites": [
       {
-        "source": "/",
+        "source": "/dashboard",
         "destination": "/dashboard.html"
       },
       {
-        "source": "/dashboard",
-        "destination": "/dashboard.html"
+        "source": "/po",
+        "destination": "/po.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
       }
     ]
   }

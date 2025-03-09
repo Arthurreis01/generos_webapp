@@ -12,8 +12,12 @@ document.addEventListener("DOMContentLoaded", async function() {
     measurementId: "G-Y3VQW229XW"
   };
 
-  firebase.initializeApp(firebaseConfig);
+  // Initialize Firebase only if no apps have been initialized yet.
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
   const db = firebase.firestore();
+
   // -------------------------
   // Data arrays and counters
   // -------------------------
@@ -29,7 +33,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   const fabMenu = document.getElementById('fabMenu');
   const fileEstoqueInput = document.getElementById('fileEstoque');
   const btnImportEstoque = document.getElementById('btnImportEstoque');
-
 
   // Modals
   const modalLicitacao = document.getElementById('modalLicitacao');
@@ -73,6 +76,67 @@ document.addEventListener("DOMContentLoaded", async function() {
   // Buttons
   const btnNewLicitacao = document.getElementById('btnNewLicitacao');
   const btnNewPO = document.getElementById('btnNewPO');
+
+  // -------------------------
+  // PROFILE MENU & AUTH LOGIC
+  // -------------------------
+  // Elements for the profile menu
+  const profileButton = document.getElementById('profileButton');
+  const profileDropdown = document.getElementById('profileDropdown');
+  const resetPasswordLink = document.getElementById('resetPasswordLink');
+  const logoutLink = document.getElementById('logoutLink');
+
+  // Toggle dropdown on profile button click
+  profileButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    profileDropdown.style.display =
+      (profileDropdown.style.display === 'block') ? 'none' : 'block';
+  });
+
+  // Close dropdown if user clicks outside
+  document.addEventListener('click', (e) => {
+    if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
+      profileDropdown.style.display = 'none';
+    }
+  });
+
+  // Reset Password
+  resetPasswordLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      alert("Nenhum usuário logado. Faça login primeiro.");
+      return;
+    }
+    try {
+      await firebase.auth().sendPasswordResetEmail(user.email);
+      alert("Email de redefinição de senha enviado para: " + user.email);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao enviar redefinição de senha: " + error.message);
+    }
+    profileDropdown.style.display = 'none';
+  });
+
+  // Logout
+  logoutLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      await firebase.auth().signOut();
+      window.location.href = "index.html";
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao fazer logout: " + error.message);
+    }
+    profileDropdown.style.display = 'none';
+  });
+
+  // On page load, check if user is logged in. If not, redirect to login
+  firebase.auth().onAuthStateChanged((user) => {
+    if (!user) {
+      window.location.href = "index.html";
+    }
+  });
 
   // -------------------------
   // CSV Export Helper Function
@@ -256,7 +320,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     const lic = licitacoes.find(l => l.id === licId);
     if (!lic) return;
     const newValStr = prompt("Digite o novo valor para 'Disp. p/lib':", lic.balance);
-    if (newValStr === null) return; // User cancelled
+    if (newValStr === null) return;
     const newVal = parseFloat(newValStr);
     if (isNaN(newVal)) {
       alert("Valor inválido.");
@@ -613,7 +677,6 @@ document.addEventListener("DOMContentLoaded", async function() {
       else if (pct <= 70) gaugeColor = "#FFD700";
       else gaugeColor = "#FF4500";
 
-      // Calculate Autonomia (balance / cmm) if possible
       let autonomia = "N/A";
       if (lic.cmm && lic.cmm > 0) {
         autonomia = (lic.balance / lic.cmm).toFixed(2);
@@ -624,7 +687,6 @@ document.addEventListener("DOMContentLoaded", async function() {
         vencStyle = 'style="color: red;"';
       }
 
-      // Wrap the licitação title in a span with truncated-value so that if it's too long, it shows ellipsis.
       const truncatedTitle = `<span class="truncated-value" title="${lic.itemSolicitado}">${lic.itemSolicitado}</span>`;
 
       const card = document.createElement("div");
@@ -704,7 +766,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (formComentarios.elements["licitacaoId"]) {
       formComentarios.elements["licitacaoId"].value = licId;
     }
-    // Do not reset newCommentCount here so the badge remains until comments are manually cleared
     renderChat(lic);
     openModal(modalComentarios);
   };
@@ -713,7 +774,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (!lic) return;
     if (!confirm("Tem certeza que deseja excluir este comentário?")) return;
     lic.comentarios.splice(commentIndex, 1);
-    // Update newCommentCount to the current number of comments
     lic.newCommentCount = lic.comentarios.length;
     try {
       await db.collection("licitacoes").doc(lic.docId).update({
