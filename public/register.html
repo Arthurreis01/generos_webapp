@@ -2,14 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Login - Guara-system</title>
-  <!-- Optionally link your external style.css if you want to share styles -->
+  <title>Registrar - Guara-system</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
   <style>
-    /* Centered box design */
+    /* Centered box design similar to login page */
     body {
       background-color: #f8f9fa;
       display: flex;
@@ -18,7 +16,7 @@
       height: 100vh;
       margin: 0;
     }
-    .login-box {
+    .register-box {
       background-color: #fff;
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -26,19 +24,19 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       width: 300px;
     }
-    .login-box h2 {
+    .register-box h2 {
       text-align: center;
       color: #007bff;
       margin-bottom: 1rem;
     }
-    .login-box input {
+    .register-box input {
       width: 100%;
       padding: 0.5rem;
       margin-bottom: 1rem;
       border: 1px solid #ddd;
       border-radius: 4px;
     }
-    .login-box button {
+    .register-box button {
       width: 100%;
       padding: 0.5rem;
       background-color: #007bff;
@@ -47,36 +45,36 @@
       color: #fff;
       font-weight: bold;
     }
-    .login-box button:hover {
+    .register-box button:hover {
       background-color: #0056b3;
     }
-    .login-box .error {
+    .register-box .error {
       color: red;
       text-align: center;
       margin-bottom: 1rem;
     }
-    .login-box .link {
+    .register-box .link {
       text-align: center;
       margin-top: 1rem;
     }
   </style>
 </head>
 <body>
-  <div class="login-box">
-    <h2>Guara-system Login</h2>
+  <div class="register-box">
+    <h2>Criar Conta</h2>
     <div class="error" id="error-message"></div>
-    <form id="login-form">
+    <form id="register-form">
       <input type="email" id="email" placeholder="Email" required>
       <input type="password" id="password" placeholder="Senha" required>
-      <button type="submit">Entrar</button>
+      <button type="submit">Registrar</button>
     </form>
     <div class="link">
-      <a href="register.html">Criar conta</a>
+      <a href="login.html">Já possui conta? Faça login</a>
     </div>
   </div>
 
   <script>
-    // Your Firebase configuration – replace with your actual config values
+    // Firebase configuration – use the same configuration as in your login page
     var firebaseConfig = {
     apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
     authDomain: "generos-webapp.firebaseapp.com",
@@ -85,20 +83,20 @@
     messagingSenderId: "874489491002",
     appId: "1:874489491002:web:46f893c170bbd944cb8f03",
     measurementId: "G-Y3VQW229XW"
-     };
+  };
     firebase.initializeApp(firebaseConfig);
 
-    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
     const errorMessage = document.getElementById('error-message');
 
-    loginForm.addEventListener('submit', function(e) {
+    registerForm.addEventListener('submit', function(e) {
       e.preventDefault();
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
 
-      firebase.auth().signInWithEmailAndPassword(email, password)
+      firebase.auth().createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
-          // Successful login: redirect to main page
+          // User created and automatically signed in, then redirect
           window.location.href = "index.html";
         })
         .catch((error) => {

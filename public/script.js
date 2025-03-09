@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", async function() {
   // -------------------------
-  // Firebase configuration and initialization
+  // Firebase configuration – replace placeholders with your actual Firebase credentials!
   // -------------------------
   const firebaseConfig = {
     apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
@@ -11,14 +11,9 @@ document.addEventListener("DOMContentLoaded", async function() {
     appId: "1:874489491002:web:46f893c170bbd944cb8f03",
     measurementId: "G-Y3VQW229XW"
   };
+
   firebase.initializeApp(firebaseConfig);
-  var db = firebase.firestore();
-
-  // -------------------------
-  // Security: Password check
-  // -------------------------
-
-
+  const db = firebase.firestore();
   // -------------------------
   // Data arrays and counters
   // -------------------------
@@ -32,8 +27,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   // -------------------------
   const fab = document.querySelector('.fab');
   const fabMenu = document.getElementById('fabMenu');
-
-  // Import Estoque elements
   const fileEstoqueInput = document.getElementById('fileEstoque');
   const btnImportEstoque = document.getElementById('btnImportEstoque');
 
@@ -45,7 +38,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   const modalVerificarOCs = document.getElementById('modalVerificarOCs');
   const modalComentarios = document.getElementById('modalComentarios');
   const modalPODetails = document.getElementById('modalPODetails');
-  const modalLicitacaoInfo = document.getElementById('modalLicitacaoInfo'); // NEW
+  const modalLicitacaoInfo = document.getElementById('modalLicitacaoInfo');
 
   // Forms
   const formLicitacao = document.getElementById('formLicitacao');
@@ -59,8 +52,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   const editLicitacaoSelect = document.getElementById('editLicitacaoSelect');
 
   // Chat fields
-  const inputComentariosLicId = formComentarios ? formComentarios.elements['licitacaoId'] : null;
-  const inputNewMessage = formComentarios ? formComentarios.elements['newMessage'] : null;
   const chatMessages = document.getElementById('chatMessages');
 
   // UI Containers
@@ -75,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   const licitacoesSearch = document.getElementById('licitacoesSearch');
   const poSearch = document.getElementById('poSearch');
 
-  // Category filter radios (only on index.html)
+  // Category filter radios
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
 
   // Buttons
@@ -83,7 +74,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   const btnNewPO = document.getElementById('btnNewPO');
 
   // -------------------------
-  // Export CSV (Excel) Helper Function
+  // CSV Export Helper Function
   // -------------------------
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
@@ -100,50 +91,65 @@ document.addEventListener("DOMContentLoaded", async function() {
     a.click();
     document.body.removeChild(a);
   }
-
-  const exportLicitacoesBtn = document.getElementById("exportLicitacoesBtn");
-  if (exportLicitacoesBtn) {
-    exportLicitacoesBtn.addEventListener("click", function() {
-      const headers = ["id", "numeroProcesso", "nomeEmpresa", "telefoneEmpresa", "itemSolicitado", "vencimentoAta", "status", "balance", "ocTotal", "categoria", "cmm"];
+  if (document.getElementById("exportLicitacoesBtn")) {
+    document.getElementById("exportLicitacoesBtn").addEventListener("click", function() {
+      const headers = [
+        "id", "numeroProcesso", "nomeEmpresa", "telefoneEmpresa", "itemSolicitado",
+        "vencimentoAta", "status", "totalQuantity", "balance", "ocTotal", "categoria", "cmm"
+      ];
       exportDataToCSV(licitacoes, headers, "licitacoes.xls");
     });
   }
-  const exportPOBtn = document.getElementById("exportPOBtn");
-  if (exportPOBtn) {
-    exportPOBtn.addEventListener("click", function() {
-      const headers = ["id", "elemento", "prioridade", "data", "status", "creationDate", "ocDate", "acceptDate", "alertReason", "valor", "arquivos", "observacoes", "licitacaoId"];
+  if (document.getElementById("exportPOBtn")) {
+    document.getElementById("exportPOBtn").addEventListener("click", function() {
+      const headers = [
+        "id", "elemento", "prioridade", "data", "status", "creationDate",
+        "ocDate", "acceptDate", "alertReason", "valor", "arquivos", "observacoes", "licitacaoId"
+      ];
       exportDataToCSV(pos, headers, "pos.xls");
     });
   }
 
   // -------------------------
-  // Import Estoque CSV Functionality
+  // Import Estoque Functionality (CSV/Excel)
   // -------------------------
   if (btnImportEstoque && fileEstoqueInput) {
     btnImportEstoque.addEventListener('click', function() {
       fileEstoqueInput.click();
     });
-    fileEstoqueInput.addEventListener('change', importarPlanilhaEstoque);
-  }
-  async function importarPlanilhaEstoque() {
-    const file = fileEstoqueInput.files[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
+    fileEstoqueInput.addEventListener('change', async function importarPlanilhaEstoque() {
+      const file = fileEstoqueInput.files[0];
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      let text = "";
+      if (ext === "csv") {
+        text = await file.text();
+      } else if (ext === "xls" || ext === "xlsx") {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheet = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheet];
+        text = XLSX.utils.sheet_to_csv(worksheet);
+      } else {
+        alert("Formato de arquivo não suportado. Use CSV ou Excel (xls/xlsx).");
+        return;
+      }
       const lines = text.split(/\r?\n/);
-      let headers = lines[0].split(",").map(h => h.trim().toUpperCase());
+      const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
       const nameIndex = headers.indexOf("NOME_ITEM");
       const qtdeIndex = headers.indexOf("QTDE_DISPONIVEL");
       if (nameIndex < 0 || qtdeIndex < 0) {
-        alert("Colunas NOME_ITEM ou QTDE_DISPONIVEL não encontradas no CSV.");
+        alert("Colunas NOME_ITEM ou QTDE_DISPONIVEL não encontradas.");
         return;
       }
-      let updates = [];
+      const updates = [];
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(",");
         if (row.length < headers.length) continue;
         const nomeItem = row[nameIndex].trim();
-        const qtde = parseFloat(row[qtdeIndex]) || 0;
+        let qtdeStr = row[qtdeIndex].trim();
+        qtdeStr = qtdeStr.replace(/\./g, "").replace(/,/g, ".");
+        const qtde = parseFloat(qtdeStr) || 0;
         if (nomeItem) {
           updates.push({ nomeItem, qtde });
         }
@@ -160,11 +166,8 @@ document.addEventListener("DOMContentLoaded", async function() {
         }
       }
       renderLicitacoes();
-      alert("Planilha importada e 'balance' atualizado com sucesso!");
-    } catch (err) {
-      console.error("Erro ao ler o arquivo CSV:", err);
-      alert("Erro ao ler o arquivo CSV. Verifique o console para mais detalhes.");
-    }
+      alert("Planilha importada e 'Disp. p/lib.' atualizado com sucesso!");
+    });
   }
 
   // -------------------------
@@ -181,14 +184,10 @@ document.addEventListener("DOMContentLoaded", async function() {
   });
 
   // -------------------------
-  // Show/Close Modals
+  // Modal Show/Close Functions
   // -------------------------
-  function openModal(modal) {
-    modal.style.display = 'flex';
-  }
-  function closeModal(modal) {
-    modal.style.display = 'none';
-  }
+  function openModal(modal) { modal.style.display = 'flex'; }
+  function closeModal(modal) { modal.style.display = 'none'; }
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeModal(overlay);
@@ -250,71 +249,92 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
 
   // -------------------------
-  // Global Functions for Inline Handlers
+  // Manual Edit of "Disp. p/lib." – Called when user clicks the pencil icon
+  // -------------------------
+  window.editBalance = async function(licId) {
+    const lic = licitacoes.find(l => l.id === licId);
+    if (!lic) return;
+    const newValStr = prompt("Digite o novo valor para 'Disp. p/lib':", lic.balance);
+    if (newValStr === null) return; // User cancelled
+    const newVal = parseFloat(newValStr);
+    if (isNaN(newVal)) {
+      alert("Valor inválido.");
+      return;
+    }
+    lic.balance = newVal;
+    try {
+      await db.collection("licitacoes").doc(lic.docId).update({ balance: newVal });
+    } catch (error) {
+      console.error("Error updating disp. p/lib:", error);
+    }
+    renderLicitacoes();
+  };
+
+  // -------------------------
+  // PO Functions: markAsAccepted, convertToOC, deletePO, editPO
   // -------------------------
   window.markAsAccepted = async function(index) {
     const po = pos[index];
-    if (po && po.status === "OC") {
-      po.status = "Accepted";
-      po.acceptDate = new Date().toISOString();
-      po.alertReason = "";
-      try {
-        await db.collection("pos").doc(po.docId).update(po);
-      } catch (error) {
-        console.error("Error updating PO in markAsAccepted: ", error);
-      }
-      renderPOBoard();
+    if (!po || po.status !== "OC") return;
+    po.status = "Accepted";
+    po.acceptDate = new Date().toISOString();
+    po.alertReason = "";
+    po.alertAcknowledgedOC = false;
+    try {
+      await db.collection("pos").doc(po.docId).update(po);
+    } catch (error) {
+      console.error("Error updating PO in markAsAccepted:", error);
     }
+    renderPOBoard();
   };
 
   window.convertToOC = async function(index) {
     const po = pos[index];
-    if (po && po.status === "New") {
-      const ocNumber = prompt("Digite o número da OC:");
-      if (!ocNumber) return;
-      po.elemento = ocNumber;
-      po.status = "OC";
-      po.ocDate = new Date().toISOString();
-      po.alertReason = "";
-      const lic = licitacoes.find(l => l.id === po.licitacaoId);
-      if (lic) {
-        lic.balance -= po.valor;
-        lic.ocTotal += po.valor;
-        try {
-          await db.collection("licitacoes").doc(lic.docId).update(lic);
-        } catch (error) {
-          console.error("Error updating licitacao in convertToOC: ", error);
-        }
-      }
+    if (!po || po.status !== "New") return;
+    const ocNumber = prompt("Digite o número da OC:");
+    if (!ocNumber) return;
+    po.elemento = ocNumber;
+    po.status = "OC";
+    po.ocDate = new Date().toISOString();
+    po.alertReason = "";
+    po.alertAcknowledgedOC = false;
+    const lic = licitacoes.find(l => l.id === po.licitacaoId);
+    if (lic) {
+      lic.ocTotal = (lic.ocTotal || 0) + po.valor;
       try {
-        await db.collection("pos").doc(po.docId).update(po);
+        await db.collection("licitacoes").doc(lic.docId).update({ ocTotal: lic.ocTotal });
       } catch (error) {
-        console.error("Error updating PO in convertToOC: ", error);
+        console.error("Error updating licitacao in convertToOC:", error);
       }
-      renderPOBoard();
-      renderLicitacoes();
     }
+    try {
+      await db.collection("pos").doc(po.docId).update(po);
+    } catch (error) {
+      console.error("Error updating PO in convertToOC:", error);
+    }
+    renderPOBoard();
+    renderLicitacoes();
   };
 
   window.deletePO = async function(index) {
     const po = pos[index];
+    if (!po) return;
     if (!confirm(`Tem certeza de que deseja excluir o PO "${po.elemento}"?`)) return;
-    if (po && po.status === "OC") {
+    if (po.status === "OC") {
       const lic = licitacoes.find(l => l.id === po.licitacaoId);
       if (lic) {
-        lic.balance += po.valor;
-        lic.ocTotal -= po.valor;
+        lic.ocTotal = (lic.ocTotal || 0) - po.valor;
         try {
-          await db.collection("licitacoes").doc(lic.docId).update(lic);
+          await db.collection("licitacoes").doc(lic.docId).update({ ocTotal: lic.ocTotal });
         } catch (error) {
-          console.error("Error updating licitacao in PO deletion: ", error);
+          console.error("Error updating licitacao in PO deletion:", error);
         }
       }
     }
     try {
       await db.collection("pos").doc(po.docId).delete();
     } catch (error) {
-      console.error("Error deleting PO: ", error);
+      console.error("Error deleting PO:", error);
     }
     pos.splice(index, 1);
     renderPOBoard();
@@ -337,12 +357,12 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalEditPO);
   };
 
+  // -------------------------
+  // Licitação Functions: edit, delete, show details
+  // -------------------------
   window.editLicitacao = function(id) {
-    // Find the licitação by id
     const lic = licitacoes.find(l => l.id === id);
     if (!lic) return;
-    
-    // Reset the edit form and populate it with the licitação's data
     formEditLicitacao.reset();
     formEditLicitacao.elements['id'].value = lic.id;
     formEditLicitacao.elements['numeroProcesso'].value = lic.numeroProcesso;
@@ -351,18 +371,13 @@ document.addEventListener("DOMContentLoaded", async function() {
     formEditLicitacao.elements['itemSolicitado'].value = lic.itemSolicitado;
     formEditLicitacao.elements['vencimentoAta'].value = lic.vencimentoAta;
     formEditLicitacao.elements['status'].value = lic.status;
-    formEditLicitacao.elements['balance'].value = lic.balance;
+    // "balance" in the form represents totalQuantity (the original order quantity)
+    formEditLicitacao.elements['balance'].value = lic.totalQuantity || 0;
     formEditLicitacao.elements['categoria'].value = lic.categoria;
-    
-    // NEW: Set the CMM value in the edit form
-    if(formEditLicitacao.elements['cmm']) {
-      formEditLicitacao.elements['cmm'].value = lic.cmm;
-    }
-    
-    // Open the modal for editing
+    formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
     openModal(modalEditLicitacao);
   };
-  
+
   window.deleteLicitacao = async function(id) {
     const lic = licitacoes.find(l => l.id === id);
     if (!lic) return;
@@ -370,13 +385,12 @@ document.addEventListener("DOMContentLoaded", async function() {
     try {
       await db.collection("licitacoes").doc(lic.docId).delete();
     } catch (error) {
-      console.error("Error deleting licitacao: ", error);
+      console.error("Error deleting licitacao:", error);
     }
     licitacoes = licitacoes.filter(l => l.id !== id);
     renderLicitacoes();
   };
 
-  // New: Show Licitação Details
   window.showLicitacaoDetails = function(id) {
     const lic = licitacoes.find(l => l.id === id);
     if (!lic) return;
@@ -390,8 +404,14 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalLicitacaoInfo);
   };
 
+  // -------------------------
+  // Verificar OCs – now includes Accepted status as well
+  // -------------------------
   window.verificarOCs = function(licitacaoId) {
-    const ocList = pos.filter(po => po.licitacaoId === licitacaoId && po.status === "OC");
+    const ocList = pos.filter(po =>
+      po.licitacaoId === licitacaoId &&
+      (po.status === "OC" || po.status === "Accepted" || po.status === "Archived")
+    );
     const tableBody = document.querySelector('#tableVerificarOCs tbody');
     tableBody.innerHTML = "";
     ocList.forEach(oc => {
@@ -414,35 +434,43 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalVerificarOCs);
   };
 
-  // Enhanced: Show PO Details with tracking info
+  // -------------------------
+  // Show PO Details
+  // -------------------------
   function showPODetails(index) {
     const po = pos[index];
     const detailContent = document.getElementById('poDetailContent');
-    // Lookup licitação info for the PO
     const lic = licitacoes.find(l => l.id === po.licitacaoId);
-    function formatDateBrazil(dateStr) {
-      if (!dateStr) return "";
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("pt-BR");
+    function formatDateBrazil(ds) {
+      if (!ds) return "";
+      const d = new Date(ds);
+      return isNaN(d) ? ds : d.toLocaleDateString("pt-BR");
     }
     detailContent.innerHTML = `
-      <p><strong>Elemento:</strong> ${po.elemento}</p>
-      <p><strong>Data:</strong> ${formatDateBrazil(po.data)}</p>
-      <p><strong>Valor:</strong> ${po.valor}</p>
-      <p><strong>Observação:</strong> ${po.observacoes || ""}</p>
-      <p><strong>Licitação:</strong> ${lic ? lic.itemSolicitado : ""}</p>
-      <h4>Rastreio</h4>
-      <ul>
-        <li><strong>Criado em:</strong> ${formatDateBrazil(po.creationDate)}</li>
-        <li><strong>Virou OC em:</strong> ${formatDateBrazil(po.ocDate)}</li>
-        <li><strong>Aceite em:</strong> ${formatDateBrazil(po.acceptDate)}</li>
-        <!-- If you have an archive date, include it here -->
-      </ul>
+      <div class="po-details">
+        <div class="po-info">
+          <p><strong>Elemento:</strong> ${po.elemento}</p>
+          <p><strong>Data:</strong> ${formatDateBrazil(po.data)}</p>
+          <p><strong>Valor:</strong> ${po.valor}</p>
+          <p><strong>Observação:</strong> ${po.observacoes || ""}</p>
+          <p><strong>Licitação:</strong> ${lic ? lic.itemSolicitado : ""}</p>
+        </div>
+        <div class="track-details">
+          <h4>Rastreio</h4>
+          <ul>
+            <li><strong>Criado em:</strong> ${formatDateBrazil(po.creationDate)}</li>
+            <li><strong>Virou OC em:</strong> ${formatDateBrazil(po.ocDate)}</li>
+            <li><strong>Aceite em:</strong> ${formatDateBrazil(po.acceptDate)}</li>
+          </ul>
+        </div>
+      </div>
     `;
     openModal(modalPODetails);
   }
 
-  // Archive PO
+  // -------------------------
+  // Archive PO – removes from card but remains in Verificar OCs for control
+  // -------------------------
   window.archivePO = async function(index) {
     const po = pos[index];
     if (!po) return;
@@ -457,18 +485,28 @@ document.addEventListener("DOMContentLoaded", async function() {
   };
 
   // -------------------------
-  // Automatic PO Status Update (Overdue Checks)
+  // Automatic PO Status Update (Alerts)
   // -------------------------
   function updatePOStatuses() {
     const now = new Date();
     pos.forEach(po => {
       if (po.status === "New") {
+        if (!po.hasOwnProperty('alertAcknowledgedNew')) po.alertAcknowledgedNew = false;
         const creation = new Date(po.creationDate);
-        po.alertReason = (now - creation > 2 * 24 * 60 * 60 * 1000) ? "Overdue to become OC" : "";
+        if ((now - creation) > (2 * 24 * 60 * 60 * 1000) && !po.alertAcknowledgedNew) {
+          po.alertReason = "Overdue to become OC";
+        } else {
+          po.alertReason = "";
+        }
       } else if (po.status === "OC") {
+        if (!po.hasOwnProperty('alertAcknowledgedOC')) po.alertAcknowledgedOC = false;
         if (po.ocDate) {
           const oc = new Date(po.ocDate);
-          po.alertReason = (now - oc > 15 * 24 * 60 * 60 * 1000) ? "Overdue acceptance" : "";
+          if ((now - oc) > (15 * 24 * 60 * 60 * 1000) && !po.alertAcknowledgedOC) {
+            po.alertReason = "Overdue acceptance";
+          } else {
+            po.alertReason = "";
+          }
         }
       } else {
         po.alertReason = "";
@@ -476,8 +514,29 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
+  window.confirmAlert = async function(index) {
+    const po = pos[index];
+    if (!po) return;
+    if (po.status === "New") {
+      po.alertAcknowledgedNew = true;
+    } else if (po.status === "OC") {
+      po.alertAcknowledgedOC = true;
+    }
+    po.alertReason = "";
+    try {
+      await db.collection("pos").doc(po.docId).update({
+        alertAcknowledgedNew: po.alertAcknowledgedNew,
+        alertAcknowledgedOC: po.alertAcknowledgedOC,
+        alertReason: ""
+      });
+    } catch (error) {
+      console.error("Error confirming alert:", error);
+    }
+    renderPOBoard();
+  };
+
   // -------------------------
-  // Render PO Board (Kanban Style)
+  // Render PO Board (Kanban)
   // -------------------------
   function renderPOBoard() {
     updatePOStatuses();
@@ -490,25 +549,20 @@ document.addEventListener("DOMContentLoaded", async function() {
     const searchTerm = poSearch ? poSearch.value.toLowerCase() : "";
     pos.forEach((po, index) => {
       if (searchTerm && !po.elemento.toLowerCase().includes(searchTerm)) return;
-
       const card = document.createElement('div');
       card.className = "po-card";
       card.innerHTML = `
         <p class="po-number">${po.elemento}</p>
-        ${po.alertReason ? `<p class="alert-text">${po.alertReason}</p>` : ""}
+        ${po.alertReason ? `<p class="alert-text">${po.alertReason} <button class="confirm-alert-btn" onclick="confirmAlert(${index})">Confirmar</button></p>` : ""}
         <div class="po-actions">
-          ${
-            po.status === "New"
+          ${ po.status === "New"
               ? `<button onclick="convertToOC(${index})" title="Converter para OC"><i class="bi bi-arrow-right-circle"></i></button>`
               : po.status === "OC"
                 ? `<button onclick="markAsAccepted(${index})" title="Aceitar"><i class="bi bi-check-circle"></i></button>`
-                : ""
-          }
-          ${
-            po.status !== "Archived"
+                : "" }
+          ${ po.status !== "Archived"
               ? `<button onclick="archivePO(${index})" title="Arquivar"><i class="bi bi-archive"></i></button>`
-              : ""
-          }
+              : "" }
           <button onclick="editPO(${index})" title="Editar"><i class="bi bi-pencil"></i></button>
           <button onclick="deletePO(${index})" title="Excluir"><i class="bi bi-trash"></i></button>
         </div>
@@ -517,25 +571,24 @@ document.addEventListener("DOMContentLoaded", async function() {
         if (e.target.closest('.po-actions')) return;
         showPODetails(index);
       });
-
       if (po.status === 'Archived') {
-        if (archivedPOsCol) archivedPOsCol.appendChild(card);
+        archivedPOsCol && archivedPOsCol.appendChild(card);
       } else if (po.alertReason) {
-        if (alertPOsCol) alertPOsCol.appendChild(card);
+        alertPOsCol && alertPOsCol.appendChild(card);
       } else if (po.status === "New") {
-        if (newPOsCol) newPOsCol.appendChild(card);
+        newPOsCol && newPOsCol.appendChild(card);
       } else if (po.status === "OC") {
-        if (ocPOsCol) ocPOsCol.appendChild(card);
+        ocPOsCol && ocPOsCol.appendChild(card);
       } else if (po.status === "Accepted") {
-        if (acceptedPOsCol) acceptedPOsCol.appendChild(card);
+        acceptedPOsCol && acceptedPOsCol.appendChild(card);
       } else {
-        if (newPOsCol) newPOsCol.appendChild(card);
+        newPOsCol && newPOsCol.appendChild(card);
       }
     });
   }
 
   // -------------------------
-  // Render Licitações (Card UI) with Gauge and Details Button
+  // Render Licitações (Cards)
   // -------------------------
   function renderLicitacoes() {
     if (licitacaoCards) licitacaoCards.innerHTML = "";
@@ -549,34 +602,34 @@ document.addEventListener("DOMContentLoaded", async function() {
     licitacoes.forEach(lic => {
       if (searchTerm && !lic.itemSolicitado.toLowerCase().includes(searchTerm)) return;
       if (categoryFilter !== 'all' && lic.categoria !== categoryFilter) return;
-      
-      // Compute gauge ratio and color
-      const total = lic.balance + (lic.ocTotal || 0);
+
+      const total = lic.totalQuantity || 0;
       const used = lic.ocTotal || 0;
       const ratio = total > 0 ? (used / total) : 0;
-      let gaugeColor;
       const pct = ratio * 100;
-      if (pct <= 30) {
-        gaugeColor = "#3CB371"; // green
-      } else if (pct <= 70) {
-        gaugeColor = "#FFD700"; // yellow
-      } else {
-        gaugeColor = "#FF4500"; // red
+      let gaugeColor;
+      if (pct <= 30) gaugeColor = "#3CB371";
+      else if (pct <= 70) gaugeColor = "#FFD700";
+      else gaugeColor = "#FF4500";
+
+      // Calculate Autonomia (balance / cmm) if possible
+      let autonomia = "N/A";
+      if (lic.cmm && lic.cmm > 0) {
+        autonomia = (lic.balance / lic.cmm).toFixed(2);
       }
-      
-      // Autonomia calculation
-      const autonomia = (lic.cmm && lic.balance) ? (lic.balance / lic.cmm) : 0;
-      
-      // Check if due date is within 3 months
+
       let vencStyle = "";
       if (isCloseToDue(lic.vencimentoAta)) {
         vencStyle = 'style="color: red;"';
       }
-      
+
+      // Wrap the licitação title in a span with truncated-value so that if it's too long, it shows ellipsis.
+      const truncatedTitle = `<span class="truncated-value" title="${lic.itemSolicitado}">${lic.itemSolicitado}</span>`;
+
       const card = document.createElement("div");
       card.className = "item-card fancy-card";
       card.innerHTML = `
-        <h2>${lic.itemSolicitado}</h2>
+        <h2>${truncatedTitle}</h2>
         <div class="gauge-container">
           <svg viewBox="0 0 36 18" class="semi-circle">
             <path d="M2,18 A16,16 0 0 1 34,18" stroke="#eee" stroke-width="4" fill="none"/>
@@ -590,39 +643,42 @@ document.addEventListener("DOMContentLoaded", async function() {
           </svg>
           <p>${used}KG de ${total}KG</p>
         </div>
-        <p id="venc" ${vencStyle}> ${formatDate(lic.vencimentoAta)}</p>
+        <p id="venc" ${vencStyle}>${formatDate(lic.vencimentoAta)}</p>
         <div class="info-icons two-columns">
           <div class="icon-with-label">
-            <span class="icon">🛒</span>
-            <span>Disp. p/ lib: ${lic.balance}KG</span>
+            <span class="label">Disp. p/lib:</span>
+            <span class="value truncated-value" title="${lic.balance} KG">${lic.balance} KG</span>
+            <button class="edit-disp-button" onclick="editBalance(${lic.id})" title="Editar Disp. p/lib">
+              <i class="bi bi-pencil"></i>
+            </button>
           </div>
           <div class="icon-with-label">
-            <span class="icon">📅</span>
-            <span>CMM: ${lic.cmm}</span>
+            <span class="label">CMM:</span>
+            <span class="value truncated-value" title="${lic.cmm}">${lic.cmm}</span>
           </div>
           <div class="icon-with-label">
-            <span class="icon">🚚</span>
-            <span>Em OC: ${lic.ocTotal}KG</span>
+            <span class="label">Em OC:</span>
+            <span class="value truncated-value" title="${lic.ocTotal} KG">${lic.ocTotal} KG</span>
           </div>
           <div class="icon-with-label">
-            <span class="icon">⏳</span>
-            <span>Autonomia: ${autonomia.toFixed(2)} meses</span>
+            <span class="label">Autonomia:</span>
+            <span class="value truncated-value" title="${autonomia} meses">${autonomia} meses</span>
           </div>
         </div>
         <button onclick="verificarOCs(${lic.id})" class="ocs-button">Verificar OCs</button>
         <div class="card-actions">
-          <button onclick="openComentarios(${lic.id})" title="Comentários"><i class="bi bi-chat-dots"></i></button>
+          <button class="comments-btn" onclick="openComentarios(${lic.id})" title="Comentários">
+            <i class="bi bi-chat-dots"></i>
+            ${lic.newCommentCount && lic.newCommentCount > 0 ? `<span class="new-comment-badge">${lic.newCommentCount}</span>` : ""}
+          </button>
           <button onclick="editLicitacao(${lic.id})" title="Editar"><i class="bi bi-pencil"></i></button>
           <button onclick="deleteLicitacao(${lic.id})" title="Excluir"><i class="bi bi-trash"></i></button>
-          <button onclick="showLicitacaoDetails(${lic.id})" title="Detalhes da Licitação">
-            <i class="bi bi-info-circle"></i>
-          </button>
+          <button onclick="showLicitacaoDetails(${lic.id})" title="Detalhes da Licitação"><i class="bi bi-info-circle"></i></button>
         </div>
       `;
-      if (licitacaoCards) licitacaoCards.appendChild(card);
+      licitacaoCards && licitacaoCards.appendChild(card);
     });
   }
-  
 
   // -------------------------
   // Render Chat (Comentários)
@@ -630,12 +686,13 @@ document.addEventListener("DOMContentLoaded", async function() {
   function renderChat(lic) {
     if (!chatMessages) return;
     chatMessages.innerHTML = "";
-    lic.comentarios.forEach(msg => {
+    lic.comentarios.forEach((msg, idx) => {
       const bubble = document.createElement('div');
       bubble.className = "chat-bubble";
       bubble.innerHTML = `
         <p>${msg.text}</p>
         <span class="chat-time">${formatTime(msg.time)}</span>
+        <button class="delete-comment-btn" onclick="deleteComment(${lic.id}, ${idx})" title="Excluir comentário">X</button>
       `;
       chatMessages.appendChild(bubble);
     });
@@ -643,18 +700,40 @@ document.addEventListener("DOMContentLoaded", async function() {
   window.openComentarios = function(licId) {
     const lic = licitacoes.find(l => l.id === licId);
     if (!lic) return;
-    if (inputComentariosLicId) inputComentariosLicId.value = licId;
+    if (formComentarios.elements["licitacaoId"]) {
+      formComentarios.elements["licitacaoId"].value = licId;
+    }
+    // Do not reset newCommentCount here so the badge remains until comments are manually cleared
     renderChat(lic);
     openModal(modalComentarios);
   };
+  window.deleteComment = async function(licId, commentIndex) {
+    const lic = licitacoes.find(l => l.id === licId);
+    if (!lic) return;
+    if (!confirm("Tem certeza que deseja excluir este comentário?")) return;
+    lic.comentarios.splice(commentIndex, 1);
+    // Update newCommentCount to the current number of comments
+    lic.newCommentCount = lic.comentarios.length;
+    try {
+      await db.collection("licitacoes").doc(lic.docId).update({
+        comentarios: lic.comentarios,
+        newCommentCount: lic.newCommentCount
+      });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+    }
+    renderChat(lic);
+    renderLicitacoes();
+  };
 
   // -------------------------
-  // Event Listeners for Forms and Search
+  // Form Submissions
   // -------------------------
   if (formLicitacao) {
     formLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
       const fd = new FormData(formLicitacao);
+      const totalQty = parseFloat(fd.get('balance')) || 0;
       const newLic = {
         id: licitacaoIdCounter++,
         numeroProcesso: fd.get('numeroProcesso'),
@@ -663,17 +742,18 @@ document.addEventListener("DOMContentLoaded", async function() {
         itemSolicitado: fd.get('itemSolicitado'),
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
-        balance: parseFloat(fd.get('balance')) || 0,
+        totalQuantity: totalQty,
+        balance: 0, // initial "Disp. p/lib" is 0
         ocTotal: 0,
         comentarios: [],
         categoria: fd.get('categoria'),
-        cmm: parseFloat(fd.get('cmm')) || 0  // New CMM field
+        cmm: parseFloat(fd.get('cmm')) || 0
       };
       try {
         const docRef = await db.collection("licitacoes").add(newLic);
         newLic.docId = docRef.id;
       } catch (error) {
-        console.error("Error adding licitacao: ", error);
+        console.error("Error adding licitacao:", error);
       }
       licitacoes.push(newLic);
       renderLicitacoes();
@@ -688,21 +768,20 @@ document.addEventListener("DOMContentLoaded", async function() {
       const fd = new FormData(formEditLicitacao);
       const id = parseInt(fd.get('id'));
       const lic = licitacoes.find(l => l.id === id);
-      if (lic) {
-        lic.numeroProcesso = fd.get('numeroProcesso');
-        lic.nomeEmpresa = fd.get('nomeEmpresa');
-        lic.telefoneEmpresa = fd.get('telefoneEmpresa');
-        lic.itemSolicitado = fd.get('itemSolicitado');
-        lic.vencimentoAta = fd.get('vencimentoAta');
-        lic.status = fd.get('status');
-        lic.balance = parseFloat(fd.get('balance')) || 0;
-        lic.categoria = fd.get('categoria');
-        lic.cmm = parseFloat(fd.get('cmm')) || 0;
-        try {
-          await db.collection("licitacoes").doc(lic.docId).update(lic);
-        } catch (error) {
-          console.error("Error updating licitacao: ", error);
-        }
+      if (!lic) return;
+      lic.numeroProcesso = fd.get('numeroProcesso');
+      lic.nomeEmpresa = fd.get('nomeEmpresa');
+      lic.telefoneEmpresa = fd.get('telefoneEmpresa');
+      lic.itemSolicitado = fd.get('itemSolicitado');
+      lic.vencimentoAta = fd.get('vencimentoAta');
+      lic.status = fd.get('status');
+      lic.totalQuantity = parseFloat(fd.get('balance')) || 0;
+      lic.categoria = fd.get('categoria');
+      lic.cmm = parseFloat(fd.get('cmm')) || 0;
+      try {
+        await db.collection("licitacoes").doc(lic.docId).update(lic);
+      } catch (error) {
+        console.error("Error updating licitacao:", error);
       }
       renderLicitacoes();
       formEditLicitacao.reset();
@@ -727,13 +806,15 @@ document.addEventListener("DOMContentLoaded", async function() {
         valor: parseFloat(fd.get('valor')) || 0,
         arquivos: fd.get('arquivos'),
         observacoes: fd.get('observacoes'),
-        licitacaoId: parseInt(fd.get('licitacaoId')) || 0
+        licitacaoId: parseInt(fd.get('licitacaoId')) || 0,
+        alertAcknowledgedNew: false,
+        alertAcknowledgedOC: false
       };
       try {
         const docRef = await db.collection("pos").add(newPO);
         newPO.docId = docRef.id;
       } catch (error) {
-        console.error("Error adding PO: ", error);
+        console.error("Error adding PO:", error);
       }
       pos.push(newPO);
       renderPOBoard();
@@ -765,12 +846,11 @@ document.addEventListener("DOMContentLoaded", async function() {
       if (oldStatus === "OC") {
         const oldLic = licitacoes.find(l => l.id === oldLicitacaoId);
         if (oldLic) {
-          oldLic.balance += oldValor;
           oldLic.ocTotal -= oldValor;
           try {
-            await db.collection("licitacoes").doc(oldLic.docId).update(oldLic);
+            await db.collection("licitacoes").doc(oldLic.docId).update({ ocTotal: oldLic.ocTotal });
           } catch (error) {
-            console.error("Error updating licitacao in PO edit: ", error);
+            console.error("Error updating old lic in PO edit:", error);
           }
         }
       }
@@ -778,20 +858,18 @@ document.addEventListener("DOMContentLoaded", async function() {
         oldPO.ocDate = new Date().toISOString();
         const newLic = licitacoes.find(l => l.id === oldPO.licitacaoId);
         if (newLic) {
-          newLic.balance -= oldPO.valor;
           newLic.ocTotal += oldPO.valor;
           try {
-            await db.collection("licitacoes").doc(newLic.docId).update(newLic);
+            await db.collection("licitacoes").doc(newLic.docId).update({ ocTotal: newLic.ocTotal });
           } catch (error) {
-            console.error("Error updating licitacao in PO edit: ", error);
+            console.error("Error updating new lic in PO edit:", error);
           }
         }
       }
-
       try {
         await db.collection("pos").doc(oldPO.docId).update(oldPO);
       } catch (error) {
-        console.error("Error updating PO: ", error);
+        console.error("Error updating PO:", error);
       }
       renderPOBoard();
       formEditPO.reset();
@@ -807,36 +885,36 @@ document.addEventListener("DOMContentLoaded", async function() {
       const lic = licitacoes.find(l => l.id === licId);
       if (!lic) return;
       const newMsg = {
-        text: inputNewMessage.value,
+        text: formComentarios.elements["newMessage"].value,
         time: new Date()
       };
       lic.comentarios.push(newMsg);
+      lic.newCommentCount = (lic.newCommentCount || 0) + 1;
       try {
-        await db.collection("licitacoes").doc(lic.docId).update({ comentarios: lic.comentarios });
+        await db.collection("licitacoes").doc(lic.docId).update({
+          comentarios: lic.comentarios,
+          newCommentCount: lic.newCommentCount
+        });
       } catch (error) {
-        console.error("Error updating comentarios: ", error);
+        console.error("Error updating comentarios:", error);
       }
-      inputNewMessage.value = "";
+      formComentarios.elements["newMessage"].value = "";
       renderChat(lic);
+      renderLicitacoes();
     });
   }
 
   if (licitacoesSearch) {
-    licitacoesSearch.addEventListener("input", function() {
-      renderLicitacoes();
-    });
+    licitacoesSearch.addEventListener("input", renderLicitacoes);
   }
   if (poSearch) {
-    poSearch.addEventListener("input", function() {
-      renderPOBoard();
-    });
+    poSearch.addEventListener("input", renderPOBoard);
   }
   if (filterCategoryRadios) {
     filterCategoryRadios.forEach(radio => {
       radio.addEventListener('change', renderLicitacoes);
     });
   }
-
   if (btnNewLicitacao) {
     btnNewLicitacao.addEventListener('click', function() {
       formLicitacao.reset();
@@ -852,13 +930,13 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
 
   // -------------------------
-  // Load Data from Firestore and Render All
+  // Load Data from Firestore
   // -------------------------
   async function loadData() {
     try {
       const licSnapshot = await db.collection("licitacoes").get();
       licSnapshot.forEach(doc => {
-        let licData = doc.data();
+        const licData = doc.data();
         licData.docId = doc.id;
         if (!licData.comentarios) licData.comentarios = [];
         licitacoes.push(licData);
@@ -868,7 +946,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       });
       const posSnapshot = await db.collection("pos").get();
       posSnapshot.forEach(doc => {
-        let poData = doc.data();
+        const poData = doc.data();
         poData.docId = doc.id;
         pos.push(poData);
         if (poData.id >= poIdCounter) {
@@ -878,8 +956,14 @@ document.addEventListener("DOMContentLoaded", async function() {
       renderLicitacoes();
       renderPOBoard();
     } catch (error) {
-      console.error("Error loading data: ", error);
+      console.error("Error loading data:", error);
     }
   }
   await loadData();
+
+  // -------------------------
+  // Helper: Open/Close Modal
+  // -------------------------
+  function openModal(modal) { modal.style.display = 'flex'; }
+  function closeModal(modal) { modal.style.display = 'none'; }
 });

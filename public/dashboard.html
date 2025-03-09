@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Guara-system - Controle de POs</title>
+  <title>Guara-system - Licitações</title>
   <!-- Link to external CSS -->
   <link rel="stylesheet" href="style.css">
   <!-- Bootstrap Icons for buttons -->
@@ -14,7 +14,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-  <!-- Navbar (fixed header) -->
+  <!-- Navbar (fixed) -->
   <div class="navbar">
     <div class="logo">
       <img src="logo.png" alt="Logo">
@@ -22,48 +22,40 @@
       <h2 id="csup">Centro de Suprimentos do Abastecimento</h2>
     </div>
     <div class="menu">
-      <a href="index.html">Licitações</a>
-      <a href="po.html" class="active">Controle de POs</a>
+      <a href="index.html" class="active">Licitações</a>
+      <a href="po.html">Controle de POs</a>
     </div>
   </div>
 
   <!-- Main Container -->
   <div class="container">
-    <!-- PO Board Section -->
-    <section id="poBoard">
+    <!-- Licitações Section Only -->
+    <section id="licitacoes">
+      <!-- Category Toggle at the top -->
+      <div class="category-toggle">
+        <input type="radio" name="filterCategory" value="all" id="filterAll" checked>
+        <label for="filterAll" class="toggle-option">Todos</label>
+        <input type="radio" name="filterCategory" value="Frigorificados" id="filterFrigorificados">
+        <label for="filterFrigorificados" class="toggle-option">Frigorificados</label>
+        <input type="radio" name="filterCategory" value="Secos" id="filterSecos">
+        <label for="filterSecos" class="toggle-option">Secos</label>
+      </div>
       <div class="section-header">
-        <h2 class="titles">Controle de POs</h2>
         <div class="search-container">
-          <input type="text" id="poSearch" placeholder="Pesquisar POs...">
-          <button class="export-btn" id="exportPOBtn">Exportar</button>
-          <!-- Import Estoque button inside search container -->
+          <!-- Licitações Search -->
+          <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
+          <!-- Export CSV button -->
+          <button class="export-btn" id="exportLicitacoesBtn">Exportar</button>
+          <!-- Import Estoque button -->
           <button class="export-btn" id="btnImportEstoque">Importar Estoque</button>
+          <!-- Help link -->
           <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
             <i class="bi bi-question-circle"></i>
           </a>
         </div>
       </div>
-      <div class="kanban-board">
-        <div class="kanban-column" id="colNew">
-          <h3>Novo PO</h3>
-          <div class="column-content" id="newPOs"></div>
-        </div>
-        <div class="kanban-column" id="colOC">
-          <h3>OC</h3>
-          <div class="column-content" id="ocPOs"></div>
-        </div>
-        <div class="kanban-column" id="colAccepted">
-          <h3>Com Data de Aceite</h3>
-          <div class="column-content" id="acceptedPOs"></div>
-        </div>
-        <div class="kanban-column" id="colAlert">
-          <h3>Alertas</h3>
-          <div class="column-content" id="alertPOs"></div>
-        </div>
-        <div class="kanban-column" id="colArchived">
-          <h3>Arquivados</h3>
-          <div class="column-content" id="archivedPOs"></div>
-        </div>
+      <div class="card-grid" id="licitacaoCards">
+        <!-- Licitação cards rendered dynamically -->
       </div>
     </section>
   </div>
@@ -89,6 +81,7 @@
         <input type="date" name="vencimentoAta" required>
         <input type="text" name="status" placeholder="Status da licitação" required>
         <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        <!-- Categoria -->
         <label for="categoria">Categoria</label>
         <select name="categoria" required>
           <option value="Frigorificados">Frigorificados</option>
@@ -115,6 +108,7 @@
         <input type="date" name="vencimentoAta" required>
         <input type="text" name="status" placeholder="Status da licitação" required>
         <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        <!-- Categoria -->
         <label for="categoria">Categoria</label>
         <select name="categoria" required>
           <option value="Frigorificados">Frigorificados</option>
@@ -237,7 +231,7 @@
     <div class="modal modal-comentarios">
       <h2>Comentários</h2>
       <div id="chatMessages" class="chat-messages">
-        <!-- Chat bubbles injected dynamically -->
+        <!-- Chat bubbles appear here -->
       </div>
       <form id="formComentarios" class="chat-input-form">
         <input type="hidden" name="licitacaoId">
@@ -253,7 +247,7 @@
     <div class="modal">
       <h2>Detalhes do PO</h2>
       <div id="poDetailContent">
-        <!-- PO details, including tracking info, injected dynamically -->
+        <!-- PO details will be injected here -->
       </div>
       <button class="closeModal" data-modal="modalPODetails">Fechar</button>
     </div>
