@@ -12,12 +12,8 @@ document.addEventListener("DOMContentLoaded", async function() {
     measurementId: "G-Y3VQW229XW"
   };
 
-  // Initialize Firebase if not already initialized
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
+  firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
-
   // -------------------------
   // Data arrays and counters
   // -------------------------
@@ -33,6 +29,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   const fabMenu = document.getElementById('fabMenu');
   const fileEstoqueInput = document.getElementById('fileEstoque');
   const btnImportEstoque = document.getElementById('btnImportEstoque');
+
 
   // Modals
   const modalLicitacao = document.getElementById('modalLicitacao');
@@ -76,68 +73,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   // Buttons
   const btnNewLicitacao = document.getElementById('btnNewLicitacao');
   const btnNewPO = document.getElementById('btnNewPO');
-
-  // -------------------------
-  // Profile Menu & Auth Logic
-  // -------------------------
-  // Elements for the profile menu
-  const profileButton = document.getElementById('profileButton');
-  const profileDropdown = document.getElementById('profileDropdown');
-  const resetPasswordLink = document.getElementById('resetPasswordLink');
-  const logoutLink = document.getElementById('logoutLink');
-
-  // Toggle dropdown on profile button click
-  profileButton.addEventListener('click', (e) => {
-    e.stopPropagation();
-    profileDropdown.style.display =
-      (profileDropdown.style.display === 'block') ? 'none' : 'block';
-  });
-
-  // Close dropdown if user clicks outside
-  document.addEventListener('click', (e) => {
-    if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
-      profileDropdown.style.display = 'none';
-    }
-  });
-
-  // Reset Password
-  resetPasswordLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const user = firebase.auth().currentUser;
-    if (!user) {
-      alert("Nenhum usuário logado. Faça login primeiro.");
-      return;
-    }
-    try {
-      await firebase.auth().sendPasswordResetEmail(user.email);
-      alert("Email de redefinição de senha enviado para: " + user.email);
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao enviar redefinição de senha: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
-
-  // Logout
-  logoutLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      await firebase.auth().signOut();
-      // Redirect to login page
-      window.location.href = "index.html";
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao fazer logout: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
-
-  // On page load, check if user is logged in. If not, redirect to login
-  firebase.auth().onAuthStateChanged((user) => {
-    if (!user) {
-      window.location.href = "index.html";
-    }
-  });
 
   // -------------------------
   // CSV Export Helper Function
