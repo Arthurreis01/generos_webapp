@@ -80,27 +80,23 @@ document.addEventListener("DOMContentLoaded", async function() {
   // -------------------------
   // PROFILE MENU & AUTH LOGIC
   // -------------------------
-  // Elements for the profile menu
   const profileButton = document.getElementById('profileButton');
   const profileDropdown = document.getElementById('profileDropdown');
   const resetPasswordLink = document.getElementById('resetPasswordLink');
   const logoutLink = document.getElementById('logoutLink');
 
-  // Toggle dropdown on profile button click
   profileButton.addEventListener('click', (e) => {
     e.stopPropagation();
     profileDropdown.style.display =
       (profileDropdown.style.display === 'block') ? 'none' : 'block';
   });
 
-  // Close dropdown if user clicks outside
   document.addEventListener('click', (e) => {
     if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
       profileDropdown.style.display = 'none';
     }
   });
 
-  // Reset Password
   resetPasswordLink.addEventListener('click', async (e) => {
     e.preventDefault();
     const user = firebase.auth().currentUser;
@@ -118,7 +114,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     profileDropdown.style.display = 'none';
   });
 
-  // Logout
   logoutLink.addEventListener('click', async (e) => {
     e.preventDefault();
     try {
@@ -131,7 +126,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     profileDropdown.style.display = 'none';
   });
 
-  // On page load, check if user is logged in. If not, redirect to login
   firebase.auth().onAuthStateChanged((user) => {
     if (!user) {
       window.location.href = "index.html";
@@ -160,7 +154,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     document.getElementById("exportLicitacoesBtn").addEventListener("click", function() {
       const headers = [
         "id", "numeroProcesso", "nomeEmpresa", "telefoneEmpresa", "itemSolicitado",
-        "vencimentoAta", "status", "totalQuantity", "balance", "ocTotal", "categoria", "cmm"
+        "vencimentoAta", "status", "totalQuantity", "balance", "ocTotal", "ocConsumed", "categoria", "cmm"
       ];
       exportDataToCSV(licitacoes, headers, "licitacoes.xls");
     });
@@ -312,9 +306,14 @@ document.addEventListener("DOMContentLoaded", async function() {
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
   }
+  function formatDateBrazil(ds) {
+    if (!ds) return "";
+    const d = new Date(ds);
+    return isNaN(d.getTime()) ? ds : d.toLocaleDateString("pt-BR");
+  }
 
   // -------------------------
-  // Manual Edit of "Disp. p/lib." – Called when user clicks the pencil icon
+  // Manual Edit of "Disp. p/lib."
   // -------------------------
   window.editBalance = async function(licId) {
     const lic = licitacoes.find(l => l.id === licId);
@@ -336,7 +335,48 @@ document.addEventListener("DOMContentLoaded", async function() {
   };
 
   // -------------------------
-  // PO Functions: markAsAccepted, convertToOC, deletePO, editPO
+  // New Function: Inserir Consumo para OC – now linked to a specific OC
+  // -------------------------
+  window.inserirConsumoOC = async function(index) {
+    const po = pos[index];
+    if (!po || (po.status !== "OC" && po.status !== "Accepted")) return;
+    if (!po.consumos) {
+      po.consumos = [];
+    }
+    const totalConsumed = po.consumos.reduce((acc, item) => acc + item.amount, 0);
+    const available = po.valor - totalConsumed;
+    const consumptionInput = prompt(`OC ${po.elemento}:\nValor total: ${po.valor} KG\nJá consumido: ${totalConsumed} KG\nDisponível: ${available} KG\nDigite o valor do consumo:`, "");
+    if (consumptionInput === null) return;
+    const consumption = parseFloat(consumptionInput);
+    if (isNaN(consumption) || consumption <= 0) {
+      alert("Valor inválido.");
+      return;
+    }
+    if (consumption > available) {
+      alert("Consumo excede o saldo disponível.");
+      return;
+    }
+    const dateInput = prompt("Digite a data do consumo (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+    if (!dateInput) {
+      alert("Data inválida.");
+      return;
+    }
+    const consumptionEntry = { date: dateInput, amount: consumption };
+    po.consumos.push(consumptionEntry);
+    try {
+      await db.collection("pos").doc(po.docId).update({ consumos: po.consumos });
+    } catch (error) {
+      console.error("Error updating consumption for PO:", error);
+    }
+    renderPOBoard();
+    if(document.getElementById("tableVerificarOCs")) {
+      const licId = po.licitacaoId;
+      verificarOCs(licId);
+    }
+  };
+
+  // -------------------------
+  // PO Functions
   // -------------------------
   window.markAsAccepted = async function(index) {
     const po = pos[index];
@@ -344,7 +384,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     po.status = "Accepted";
     po.acceptDate = new Date().toISOString();
     po.alertReason = "";
-    po.alertAcknowledgedOC = false;
     try {
       await db.collection("pos").doc(po.docId).update(po);
     } catch (error) {
@@ -362,7 +401,8 @@ document.addEventListener("DOMContentLoaded", async function() {
     po.status = "OC";
     po.ocDate = new Date().toISOString();
     po.alertReason = "";
-    po.alertAcknowledgedOC = false;
+    // Initialize consumption tracking for this OC
+    po.consumos = [];
     const lic = licitacoes.find(l => l.id === po.licitacaoId);
     if (lic) {
       lic.ocTotal = (lic.ocTotal || 0) + po.valor;
@@ -423,7 +463,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   };
 
   // -------------------------
-  // Licitação Functions: edit, delete, show details
+  // Licitação Functions
   // -------------------------
   window.editLicitacao = function(id) {
     const lic = licitacoes.find(l => l.id === id);
@@ -436,7 +476,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     formEditLicitacao.elements['itemSolicitado'].value = lic.itemSolicitado;
     formEditLicitacao.elements['vencimentoAta'].value = lic.vencimentoAta;
     formEditLicitacao.elements['status'].value = lic.status;
-    // "balance" in the form represents totalQuantity (the original order quantity)
     formEditLicitacao.elements['balance'].value = lic.totalQuantity || 0;
     formEditLicitacao.elements['categoria'].value = lic.categoria;
     formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
@@ -470,9 +509,52 @@ document.addEventListener("DOMContentLoaded", async function() {
   };
 
   // -------------------------
-  // Verificar OCs – now includes Accepted status as well
+  // Badge Helpers for UI
+  // -------------------------
+  function getPriorityBadge(priority) {
+    switch(priority) {
+      case 'Critical':   return `<span class="priority-badge critical">${priority}</span>`;
+      case 'High':       return `<span class="priority-badge high">${priority}</span>`;
+      case 'Normal':     return `<span class="priority-badge normal">${priority}</span>`;
+      case 'Low':        return `<span class="priority-badge low">${priority}</span>`;
+      default:           return priority;
+    }
+  }
+  function getStatusBadge(status) {
+    switch(status) {
+      case 'Accepted':   return `<span class="status-badge accepted">${status}</span>`;
+      case 'OC':         return `<span class="status-badge oc">${status}</span>`;
+      case 'Archived':   return `<span class="status-badge archived">${status}</span>`;
+      case 'New':        return `<span class="status-badge new">${status}</span>`;
+      default:           return `<span class="status-badge">${status}</span>`;
+    }
+  }
+
+  // -------------------------
+  // Verificar OCs – refined UI
   // -------------------------
   window.verificarOCs = function(licitacaoId) {
+    const lic = licitacoes.find(l => l.id === licitacaoId);
+    if (!lic) return;
+    const summaryDiv = document.getElementById("consumoSummary");
+    if (summaryDiv) {
+      let totalOC = lic.ocTotal || 0;
+      let totalConsumed = 0;
+      pos.forEach(po => {
+        if (po.licitacaoId === licitacaoId && (po.status === "OC" || po.status === "Accepted" || po.status === "Archived")) {
+          if (po.consumos && po.consumos.length > 0) {
+            totalConsumed += po.consumos.reduce((acc, item) => acc + item.amount, 0);
+          }
+        }
+      });
+      const remaining = totalOC - totalConsumed;
+      summaryDiv.innerHTML = `
+        <p><strong>OC Total:</strong> ${totalOC} KG</p>
+        <p><strong>Total Consumido:</strong> ${totalConsumed} KG</p>
+        <p><strong>Saldo Geral:</strong> ${remaining} KG</p>
+        <hr>
+      `;
+    }
     const ocList = pos.filter(po =>
       po.licitacaoId === licitacaoId &&
       (po.status === "OC" || po.status === "Accepted" || po.status === "Archived")
@@ -481,16 +563,38 @@ document.addEventListener("DOMContentLoaded", async function() {
     tableBody.innerHTML = "";
     ocList.forEach(oc => {
       const idx = pos.findIndex(p => p.id === oc.id);
+
+      // Build a bullet-list of consumptions
+      let consumptionHtml = "";
+      if (oc.consumos && oc.consumos.length > 0) {
+        const totalConsumedOC = oc.consumos.reduce((acc, item) => acc + item.amount, 0);
+        consumptionHtml += `<ul class="consumption-list">`;
+        oc.consumos.forEach(item => {
+          const dateFormatted = formatDateBrazil(item.date);
+          consumptionHtml += `<li><strong>${dateFormatted}:</strong> ${item.amount} KG</li>`;
+        });
+        consumptionHtml += `</ul>`;
+        consumptionHtml += `<p><strong>Total:</strong> ${totalConsumedOC} KG</p>`;
+      } else {
+        consumptionHtml = `<p>0 KG</p>`;
+      }
+
+      // Priority + Status as badges
+      const priorityBadge = getPriorityBadge(oc.prioridade);
+      const statusBadge = getStatusBadge(oc.status);
+
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${oc.elemento}</td>
-        <td>${oc.prioridade}</td>
+        <td>${priorityBadge}</td>
         <td>${oc.data}</td>
-        <td>${oc.status}</td>
+        <td>${statusBadge}</td>
         <td>${oc.valor}</td>
         <td>${oc.arquivos || ""}</td>
         <td>${oc.observacoes || ""}</td>
+        <td>${consumptionHtml}</td>
         <td>
+          <button onclick="inserirConsumoOC(${idx})" title="Inserir Consumo"><i class="bi bi-plus-circle"></i></button>
           <button onclick="editPO(${idx})" title="Editar"><i class="bi bi-pencil"></i></button>
         </td>
       `;
@@ -506,10 +610,14 @@ document.addEventListener("DOMContentLoaded", async function() {
     const po = pos[index];
     const detailContent = document.getElementById('poDetailContent');
     const lic = licitacoes.find(l => l.id === po.licitacaoId);
-    function formatDateBrazil(ds) {
-      if (!ds) return "";
-      const d = new Date(ds);
-      return isNaN(d) ? ds : d.toLocaleDateString("pt-BR");
+    let consumptionDetails = "";
+    if (po.consumos && po.consumos.length > 0) {
+      po.consumos.forEach(item => {
+        const dateFormatted = formatDateBrazil(item.date);
+        consumptionDetails += `<p>• ${dateFormatted}: ${item.amount} KG</p>`;
+      });
+    } else {
+      consumptionDetails = "<p>Nenhum consumo registrado.</p>";
     }
     detailContent.innerHTML = `
       <div class="po-details">
@@ -528,13 +636,17 @@ document.addEventListener("DOMContentLoaded", async function() {
             <li><strong>Aceite em:</strong> ${formatDateBrazil(po.acceptDate)}</li>
           </ul>
         </div>
+        <div class="consumption-details">
+          <h4>Consumos</h4>
+          ${consumptionDetails}
+        </div>
       </div>
     `;
     openModal(modalPODetails);
   }
 
   // -------------------------
-  // Archive PO – removes from card but remains in Verificar OCs for control
+  // Archive PO
   // -------------------------
   window.archivePO = async function(index) {
     const po = pos[index];
@@ -653,7 +765,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
 
   // -------------------------
-  // Render Licitações (Cards)
+  // Render Licitações (Cards) – Sorted alphabetically
   // -------------------------
   function renderLicitacoes() {
     if (licitacaoCards) licitacaoCards.innerHTML = "";
@@ -664,7 +776,8 @@ document.addEventListener("DOMContentLoaded", async function() {
         if (radio.checked) categoryFilter = radio.value;
       });
     }
-    licitacoes.forEach(lic => {
+    const sortedLicitacoes = licitacoes.slice().sort((a, b) => a.itemSolicitado.localeCompare(b.itemSolicitado));
+    sortedLicitacoes.forEach(lic => {
       if (searchTerm && !lic.itemSolicitado.toLowerCase().includes(searchTerm)) return;
       if (categoryFilter !== 'all' && lic.categoria !== categoryFilter) return;
 
@@ -804,8 +917,9 @@ document.addEventListener("DOMContentLoaded", async function() {
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
         totalQuantity: totalQty,
-        balance: 0, // initial "Disp. p/lib" is 0
+        balance: 0,
         ocTotal: 0,
+        ocConsumed: 0,
         comentarios: [],
         categoria: fd.get('categoria'),
         cmm: parseFloat(fd.get('cmm')) || 0
@@ -1000,6 +1114,7 @@ document.addEventListener("DOMContentLoaded", async function() {
         const licData = doc.data();
         licData.docId = doc.id;
         if (!licData.comentarios) licData.comentarios = [];
+        licData.ocConsumed = licData.ocConsumed || 0;
         licitacoes.push(licData);
         if (licData.id >= licitacaoIdCounter) {
           licitacaoIdCounter = licData.id + 1;

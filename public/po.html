@@ -95,7 +95,7 @@
     <a href="#estoque">Inserir estoque atualizado</a>
   </div>
 
-  <!-- Modals (unchanged) -->
+  <!-- Modals -->
   <!-- Modal: Nova Licitação (with CMM field) -->
   <div class="modal-overlay" id="modalLicitacao">
     <div class="modal">
@@ -226,6 +226,7 @@
   <div class="modal-overlay" id="modalVerificarOCs">
     <div class="modal" id="OCmodal">
       <h2>OCs desta Licitação</h2>
+      <div id="consumoSummary"></div>
       <div class="ocs-table-container">
         <table class="table" id="tableVerificarOCs">
           <thead>
@@ -237,6 +238,7 @@
               <th>Valor</th>
               <th>Arquivos</th>
               <th>Observações</th>
+              <th>Consumos</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -287,7 +289,7 @@
     </div>
   </div>
 
-  <!-- Additional Import Estoque element (only file input remains) -->
+  <!-- Additional Import Estoque element -->
   <input type="file" id="fileEstoque" style="display: none">
 
   <!-- Main Logic (script.js) -->
@@ -295,27 +297,23 @@
 
   <!-- Profile Menu & Auth Logic -->
   <script>
-    // Elements for the profile menu
     const profileButton = document.getElementById('profileButton');
     const profileDropdown = document.getElementById('profileDropdown');
     const resetPasswordLink = document.getElementById('resetPasswordLink');
     const logoutLink = document.getElementById('logoutLink');
 
-    // Toggle dropdown on profile button click
     profileButton.addEventListener('click', (e) => {
       e.stopPropagation();
       profileDropdown.style.display =
         (profileDropdown.style.display === 'block') ? 'none' : 'block';
     });
 
-    // Close dropdown if user clicks outside
     document.addEventListener('click', (e) => {
       if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
         profileDropdown.style.display = 'none';
       }
     });
 
-    // Reset Password
     resetPasswordLink.addEventListener('click', async (e) => {
       e.preventDefault();
       const user = firebase.auth().currentUser;
@@ -333,7 +331,6 @@
       profileDropdown.style.display = 'none';
     });
 
-    // Logout
     logoutLink.addEventListener('click', async (e) => {
       e.preventDefault();
       try {

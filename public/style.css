@@ -605,3 +605,42 @@ section {
 .track-details li {
   margin: 0.3rem 0;
 }
+
+/* ---------- New UI Classes for Color-coded Badges ---------- */
+.priority-badge,
+.status-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.priority-badge.critical {
+  background-color: #dc3545; /* Red */
+}
+.priority-badge.high {
+  background-color: #fd7e14; /* Orange */
+}
+.priority-badge.normal {
+  background-color: #ffc107; /* Yellow */
+  color: #333;
+}
+.priority-badge.low {
+  background-color: #6c757d; /* Gray */
+}
+
+.status-badge.new {
+  background-color: #17a2b8; /* Teal */
+}
+.status-badge.oc {
+  background-color: #fd7e14; /* Orange */
+}
+.status-badge.accepted {
+  background-color: #28a745; /* Green */
+}
+.status-badge.archived {
+  background-color: #6c757d; /* Gray */
+}

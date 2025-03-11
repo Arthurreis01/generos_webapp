@@ -5,15 +5,12 @@
   <title>Guara-system - Licitações</title>
   <!-- Link to external CSS -->
   <link rel="stylesheet" href="style.css">
-  
   <!-- Bootstrap Icons for buttons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-  
   <!-- Firebase Scripts -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  
   <!-- SheetJS library to support Excel file import -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
@@ -86,7 +83,7 @@
     <button id="btnNewPO">Adicionar novo PO</button>
   </div>
   
-  <!-- Modals (unchanged) -->
+  <!-- Modals -->
   <!-- Modal: Nova Licitação (with CMM field) -->
   <div class="modal-overlay" id="modalLicitacao">
     <div class="modal">
@@ -205,7 +202,7 @@
         <textarea name="observacoes"></textarea>
         <label for="editLicitacaoSelect">Selecione a Licitação</label>
         <select name="licitacaoId" id="editLicitacaoSelect" required>
-          <!-- Populated dynamically -->
+          <!-- Options populated dynamically -->
         </select>
         <button type="submit">Salvar Alterações</button>
       </form>
@@ -217,6 +214,7 @@
   <div class="modal-overlay" id="modalVerificarOCs">
     <div class="modal" id="OCmodal">
       <h2>OCs desta Licitação</h2>
+      <div id="consumoSummary"></div>
       <div class="ocs-table-container">
         <table class="table" id="tableVerificarOCs">
           <thead>
@@ -228,6 +226,7 @@
               <th>Valor</th>
               <th>Arquivos</th>
               <th>Observações</th>
+              <th>Consumos</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -278,35 +277,31 @@
     </div>
   </div>
   
-  <!-- Additional Import Estoque element (only file input remains) -->
+  <!-- Additional Import Estoque element -->
   <input type="file" id="fileEstoque" style="display: none">
   
   <!-- Main Logic (script.js) -->
   <script src="script.js"></script>
   
-  <!-- Profile Menu & Auth Logic -->
+  <!-- Profile Menu & Auth Logic (same as before) -->
   <script>
-    // Elements for the profile menu
     const profileButton = document.getElementById('profileButton');
     const profileDropdown = document.getElementById('profileDropdown');
     const resetPasswordLink = document.getElementById('resetPasswordLink');
     const logoutLink = document.getElementById('logoutLink');
 
-    // Toggle dropdown on profile button click
     profileButton.addEventListener('click', (e) => {
       e.stopPropagation();
       profileDropdown.style.display =
         (profileDropdown.style.display === 'block') ? 'none' : 'block';
     });
 
-    // Close dropdown if user clicks outside
     document.addEventListener('click', (e) => {
       if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
         profileDropdown.style.display = 'none';
       }
     });
 
-    // Reset Password
     resetPasswordLink.addEventListener('click', async (e) => {
       e.preventDefault();
       const user = firebase.auth().currentUser;
@@ -324,7 +319,6 @@
       profileDropdown.style.display = 'none';
     });
 
-    // Logout
     logoutLink.addEventListener('click', async (e) => {
       e.preventDefault();
       try {
