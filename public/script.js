@@ -1,7 +1,5 @@
 document.addEventListener("DOMContentLoaded", async function() {
-  // -------------------------
   // Firebase configuration – replace placeholders with your actual Firebase credentials!
-  // -------------------------
   const firebaseConfig = {
     apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
     authDomain: "generos-webapp.firebaseapp.com",
@@ -18,17 +16,13 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
   const db = firebase.firestore();
 
-  // -------------------------
   // Data arrays and counters
-  // -------------------------
   let licitacoes = [];
   let pos = [];
   let licitacaoIdCounter = 1;
   let poIdCounter = 1;
 
-  // -------------------------
   // DOM Elements
-  // -------------------------
   const fab = document.querySelector('.fab');
   const fabMenu = document.getElementById('fabMenu');
   const fileEstoqueInput = document.getElementById('fileEstoque');
@@ -77,9 +71,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   const btnNewLicitacao = document.getElementById('btnNewLicitacao');
   const btnNewPO = document.getElementById('btnNewPO');
 
-  // -------------------------
   // PROFILE MENU & AUTH LOGIC
-  // -------------------------
   const profileButton = document.getElementById('profileButton');
   const profileDropdown = document.getElementById('profileDropdown');
   const resetPasswordLink = document.getElementById('resetPasswordLink');
@@ -132,9 +124,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   });
 
-  // -------------------------
   // CSV Export Helper Function
-  // -------------------------
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
     data.forEach(item => {
@@ -169,9 +159,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // -------------------------
   // Import Estoque Functionality (CSV/Excel)
-  // -------------------------
   if (btnImportEstoque && fileEstoqueInput) {
     btnImportEstoque.addEventListener('click', function() {
       fileEstoqueInput.click();
@@ -195,26 +183,26 @@ document.addEventListener("DOMContentLoaded", async function() {
       }
       const lines = text.split(/\r?\n/);
       const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
-      const nameIndex = headers.indexOf("NOME_ITEM");
+      const piIndex = headers.indexOf("PI");
       const qtdeIndex = headers.indexOf("QTDE_DISPONIVEL");
-      if (nameIndex < 0 || qtdeIndex < 0) {
-        alert("Colunas NOME_ITEM ou QTDE_DISPONIVEL não encontradas.");
+      if (piIndex < 0 || qtdeIndex < 0) {
+        alert("Colunas PI ou QTDE_DISPONIVEL não encontradas.");
         return;
       }
       const updates = [];
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(",");
         if (row.length < headers.length) continue;
-        const nomeItem = row[nameIndex].trim();
+        const pi = row[piIndex].trim();
         let qtdeStr = row[qtdeIndex].trim();
         qtdeStr = qtdeStr.replace(/\./g, "").replace(/,/g, ".");
         const qtde = parseFloat(qtdeStr) || 0;
-        if (nomeItem) {
-          updates.push({ nomeItem, qtde });
+        if (pi) {
+          updates.push({ pi, qtde });
         }
       }
       for (const up of updates) {
-        const lic = licitacoes.find(l => l.itemSolicitado.trim().toUpperCase() === up.nomeItem.toUpperCase());
+        const lic = licitacoes.find(l => l.pi && l.pi.trim().toUpperCase() === up.pi.toUpperCase());
         if (lic) {
           lic.balance = up.qtde;
           try {
@@ -229,9 +217,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // -------------------------
   // FAB Menu Toggle
-  // -------------------------
   fab.addEventListener('click', function(e) {
     e.stopPropagation();
     fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
@@ -242,9 +228,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   });
 
-  // -------------------------
   // Modal Show/Close Functions
-  // -------------------------
   function openModal(modal) { modal.style.display = 'flex'; }
   function closeModal(modal) { modal.style.display = 'none'; }
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -259,9 +243,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   });
 
-  // -------------------------
   // Helper Functions for Dropdowns and Date Formatting
-  // -------------------------
   function populateLicitacaoDropdown() {
     licitacaoSelect.innerHTML = '<option value="">Selecione a Licitação</option>';
     licitacoes.forEach(lic => {
@@ -312,9 +294,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     return isNaN(d.getTime()) ? ds : d.toLocaleDateString("pt-BR");
   }
 
-  // -------------------------
   // Manual Edit of "Disp. p/lib."
-  // -------------------------
   window.editBalance = async function(licId) {
     const lic = licitacoes.find(l => l.id === licId);
     if (!lic) return;
@@ -334,9 +314,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     renderLicitacoes();
   };
 
-  // -------------------------
   // New Function: Inserir Consumo para OC – now linked to a specific OC
-  // -------------------------
   window.inserirConsumoOC = async function(index) {
     const po = pos[index];
     if (!po || (po.status !== "OC" && po.status !== "Accepted")) return;
@@ -375,9 +353,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   };
 
-  // -------------------------
   // PO Functions
-  // -------------------------
   window.markAsAccepted = async function(index) {
     const po = pos[index];
     if (!po || po.status !== "OC") return;
@@ -462,9 +438,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalEditPO);
   };
 
-  // -------------------------
   // Licitação Functions
-  // -------------------------
   window.editLicitacao = function(id) {
     const lic = licitacoes.find(l => l.id === id);
     if (!lic) return;
@@ -474,6 +448,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     formEditLicitacao.elements['nomeEmpresa'].value = lic.nomeEmpresa;
     formEditLicitacao.elements['telefoneEmpresa'].value = lic.telefoneEmpresa;
     formEditLicitacao.elements['itemSolicitado'].value = lic.itemSolicitado;
+    formEditLicitacao.elements['pi'].value = lic.pi;
     formEditLicitacao.elements['vencimentoAta'].value = lic.vencimentoAta;
     formEditLicitacao.elements['status'].value = lic.status;
     formEditLicitacao.elements['balance'].value = lic.totalQuantity || 0;
@@ -508,9 +483,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalLicitacaoInfo);
   };
 
-  // -------------------------
   // Badge Helpers for UI
-  // -------------------------
   function getPriorityBadge(priority) {
     switch(priority) {
       case 'Critical':   return `<span class="priority-badge critical">${priority}</span>`;
@@ -530,9 +503,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   }
 
-  // -------------------------
   // Verificar OCs – refined UI
-  // -------------------------
   window.verificarOCs = function(licitacaoId) {
     const lic = licitacoes.find(l => l.id === licitacaoId);
     if (!lic) return;
@@ -603,9 +574,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalVerificarOCs);
   };
 
-  // -------------------------
   // Show PO Details
-  // -------------------------
   function showPODetails(index) {
     const po = pos[index];
     const detailContent = document.getElementById('poDetailContent');
@@ -645,9 +614,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalPODetails);
   }
 
-  // -------------------------
   // Archive PO
-  // -------------------------
   window.archivePO = async function(index) {
     const po = pos[index];
     if (!po) return;
@@ -661,9 +628,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     renderPOBoard();
   };
 
-  // -------------------------
   // Automatic PO Status Update (Alerts)
-  // -------------------------
   function updatePOStatuses() {
     const now = new Date();
     pos.forEach(po => {
@@ -712,9 +677,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     renderPOBoard();
   };
 
-  // -------------------------
   // Render PO Board (Kanban)
-  // -------------------------
   function renderPOBoard() {
     updatePOStatuses();
     if (newPOsCol) newPOsCol.innerHTML = "";
@@ -764,9 +727,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // -------------------------
   // Render Licitações (Cards) – Sorted alphabetically
-  // -------------------------
   function renderLicitacoes() {
     if (licitacaoCards) licitacaoCards.innerHTML = "";
     const searchTerm = licitacoesSearch ? licitacoesSearch.value.toLowerCase() : "";
@@ -783,12 +744,26 @@ document.addEventListener("DOMContentLoaded", async function() {
 
       const total = lic.totalQuantity || 0;
       const used = lic.ocTotal || 0;
-      const ratio = total > 0 ? (used / total) : 0;
-      const pct = ratio * 100;
+      // Calculate remaining items = total - used
+      // Calculate remaining items = total - used
+      const remaining = total - used;
+
+      // leftoverRatio goes from 1 (no consumption) down to 0 (fully consumed)
+      const leftoverRatio = total > 0 ? (remaining / total) : 0;
+      const dashOffset = 57 * leftoverRatio;
+
+      // Color thresholds based on leftoverRatio
+      // leftoverRatio <= 0.3 => red (low leftover => high usage)
+      // leftoverRatio <= 0.7 => yellow (medium leftover)
+      // leftoverRatio > 0.7 => green (high leftover => low usage)
       let gaugeColor;
-      if (pct <= 30) gaugeColor = "#3CB371";
-      else if (pct <= 70) gaugeColor = "#FFD700";
-      else gaugeColor = "#FF4500";
+      if (leftoverRatio <= 0.3) {
+        gaugeColor = "#FF4500";    // red
+      } else if (leftoverRatio <= 0.7) {
+        gaugeColor = "#FFD700";    // yellow
+      } else {
+        gaugeColor = "#3CB371";    // green
+      }
 
       let autonomia = "N/A";
       if (lic.cmm && lic.cmm > 0) {
@@ -808,16 +783,25 @@ document.addEventListener("DOMContentLoaded", async function() {
         <h2>${truncatedTitle}</h2>
         <div class="gauge-container">
           <svg viewBox="0 0 36 18" class="semi-circle">
-            <path d="M2,18 A16,16 0 0 1 34,18" stroke="#eee" stroke-width="4" fill="none"/>
-            <path d="M2,18 A16,16 0 0 1 34,18"
-                  stroke="${gaugeColor}"
-                  stroke-dasharray="${57 * ratio}, 57"
-                  stroke-width="4"
-                  fill="none"
-                  stroke-linecap="round"
+            <!-- Gray background arc -->
+            <path
+              d="M2,18 A16,16 0 0 1 34,18"
+              stroke="#eee"
+              stroke-width="4"
+              fill="none"
+            />
+            <!-- Colored arc (fills left to right as leftoverRatio decreases) -->
+            <path
+              d="M2,18 A16,16 0 0 1 34,18"
+              stroke="${gaugeColor}"
+              stroke-dasharray="57"
+              stroke-dashoffset="${dashOffset}"
+              stroke-width="4"
+              fill="none"
+              stroke-linecap="round"
             />
           </svg>
-          <p>${used}KG de ${total}KG</p>
+          <p>Restam ${remaining}KG de ${total}KG</p>
         </div>
         <p id="venc" ${vencStyle}>${formatDate(lic.vencimentoAta)}</p>
         <div class="info-icons two-columns">
@@ -856,9 +840,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // -------------------------
   // Render Chat (Comentários)
-  // -------------------------
   function renderChat(lic) {
     if (!chatMessages) return;
     chatMessages.innerHTML = "";
@@ -900,9 +882,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     renderLicitacoes();
   };
 
-  // -------------------------
   // Form Submissions
-  // -------------------------
   if (formLicitacao) {
     formLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -914,6 +894,7 @@ document.addEventListener("DOMContentLoaded", async function() {
         nomeEmpresa: fd.get('nomeEmpresa'),
         telefoneEmpresa: fd.get('telefoneEmpresa'),
         itemSolicitado: fd.get('itemSolicitado'),
+        pi: fd.get('pi'),
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
         totalQuantity: totalQty,
@@ -948,6 +929,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       lic.nomeEmpresa = fd.get('nomeEmpresa');
       lic.telefoneEmpresa = fd.get('telefoneEmpresa');
       lic.itemSolicitado = fd.get('itemSolicitado');
+      lic.pi = fd.get('pi');
       lic.vencimentoAta = fd.get('vencimentoAta');
       lic.status = fd.get('status');
       lic.totalQuantity = parseFloat(fd.get('balance')) || 0;
@@ -1104,9 +1086,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // -------------------------
   // Load Data from Firestore
-  // -------------------------
   async function loadData() {
     try {
       const licSnapshot = await db.collection("licitacoes").get();
@@ -1137,9 +1117,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
   await loadData();
 
-  // -------------------------
   // Helper: Open/Close Modal
-  // -------------------------
   function openModal(modal) { modal.style.display = 'flex'; }
   function closeModal(modal) { modal.style.display = 'none'; }
 });
