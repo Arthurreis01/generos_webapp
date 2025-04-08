@@ -24,30 +24,23 @@
     </div>
     <div class="menu">
       <a href="index.html" class="active">Licitações</a>
-      <a href="po.html">Controle de POs</a>
     </div>
-    
     <!-- Profile Menu -->
     <div class="profile-menu" id="profileMenu">
       <button class="profile-button" id="profileButton" title="Perfil">
         <i class="bi bi-person-circle"></i>
       </button>
       <div class="profile-dropdown" id="profileDropdown">
-        <a href="#" id="resetPasswordLink">
-          <i class="bi bi-key"></i> Resetar Senha
-        </a>
-        <a href="#" id="logoutLink">
-          <i class="bi bi-box-arrow-right"></i> Sair
-        </a>
+        <a href="#" id="resetPasswordLink"><i class="bi bi-key"></i> Resetar Senha</a>
+        <a href="#" id="logoutLink"><i class="bi bi-box-arrow-right"></i> Sair</a>
       </div>
     </div>
   </div>
   
   <!-- Main Container -->
   <div class="container">
-    <!-- Licitações Section Only -->
     <section id="licitacoes">
-      <!-- Category Toggle at the top -->
+      <!-- Category Toggle -->
       <div class="category-toggle">
         <input type="radio" name="filterCategory" value="all" id="filterAll" checked>
         <label for="filterAll" class="toggle-option">Todos</label>
@@ -58,21 +51,18 @@
       </div>
       <div class="section-header">
         <div class="search-container">
-          <!-- Licitações Search -->
           <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
-          <!-- Export CSV button -->
           <button class="export-btn" id="exportLicitacoesBtn">Exportar</button>
-          <!-- Import Estoque button -->
           <button class="export-btn" id="btnImportEstoque">Importar Estoque</button>
-          <!-- Help link -->
+          <button class="export-btn" id="btnImportOC">Importar OC</button>
           <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
             <i class="bi bi-question-circle"></i>
           </a>
         </div>
+        <span id="lastUpdateInfo"></span>
       </div>
-      <div class="card-grid" id="licitacaoCards">
-        <!-- Licitação cards rendered dynamically via script.js -->
-      </div>
+      <!-- Card Grid (Item Cards will be injected here) -->
+      <div class="card-grid" id="licitacaoCards"></div>
     </section>
   </div>
   
@@ -80,11 +70,17 @@
   <div class="fab">+</div>
   <div class="fab-menu" id="fabMenu">
     <button id="btnNewLicitacao">Adicionar nova licitação</button>
-    <button id="btnNewPO">Adicionar novo PO</button>
   </div>
   
-  <!-- Modals -->
-  <!-- Modal: Nova Licitação (with CMM field and new PI field) -->
+  <!-- Modal: Import Loading (for showing a spinner during import) -->
+  <div class="modal-overlay" id="importLoadingModal">
+    <div class="modal">
+      <h2>Importando...</h2>
+      <p>Aguarde enquanto processamos a planilha.</p>
+    </div>
+  </div>
+  
+  <!-- Modal: Nova Licitação -->
   <div class="modal-overlay" id="modalLicitacao">
     <div class="modal">
       <h2>Nova Licitação</h2>
@@ -93,13 +89,13 @@
         <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
         <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
         <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
-        <!-- New PI field added -->
         <input type="text" name="pi" placeholder="Número do PI" required>
         <input type="date" name="vencimentoAta" required>
         <input type="text" name="status" placeholder="Status da licitação" required>
+        <!-- Licitação's own balance: represents the amount available to order -->
         <input type="number" name="balance" placeholder="Saldo da licitação" required>
-        <label for="categoria">Categoria</label>
-        <select name="categoria" required>
+        <label for="selectCategoria">Categoria</label>
+        <select id="selectCategoria" name="categoria" required>
           <option value="Frigorificados">Frigorificados</option>
           <option value="Secos">Secos</option>
         </select>
@@ -110,7 +106,7 @@
     </div>
   </div>
   
-  <!-- Modal: Edit Licitação (with CMM field and new PI field) -->
+  <!-- Modal: Edit Licitação -->
   <div class="modal-overlay" id="modalEditLicitacao">
     <div class="modal">
       <h2>Editar Licitação</h2>
@@ -120,11 +116,11 @@
         <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
         <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
         <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
-        <!-- New PI field added -->
         <input type="text" name="pi" placeholder="Número do PI" required>
         <input type="date" name="vencimentoAta" required>
         <input type="text" name="status" placeholder="Status da licitação" required>
-        <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        <!-- Do not update balance from the edit form -->
+        <input type="number" name="balance" placeholder="Saldo da licitação" style="display:none;">
         <label for="categoria">Categoria</label>
         <select name="categoria" required>
           <option value="Frigorificados">Frigorificados</option>
@@ -137,118 +133,12 @@
     </div>
   </div>
   
-  <!-- Modal: Novo PO -->
-  <div class="modal-overlay" id="modalPO">
-    <div class="modal">
-      <h2>Novo PO</h2>
-      <form id="formPO">
-        <label for="elemento">Elemento</label>
-        <input type="text" name="elemento" placeholder="Ex: 135467" required>
-        <label for="prioridade">Prioridade</label>
-        <select name="prioridade" required>
-          <option value="Critical">Critical</option>
-          <option value="High">High</option>
-          <option value="Normal">Normal</option>
-          <option value="Low">Low</option>
-        </select>
-        <label for="data">Data</label>
-        <input type="date" name="data" required>
-        <label for="status">Status</label>
-        <select name="status" required>
-          <option value="New">New</option>
-        </select>
-        <label for="valor">Valor</label>
-        <input type="number" name="valor" placeholder="Valor do PO" required>
-        <label for="arquivos">Arquivos</label>
-        <input type="text" name="arquivos" placeholder="Nome do arquivo ou link">
-        <label for="observacoes">Observações</label>
-        <textarea name="observacoes" placeholder="Comentários ou observações"></textarea>
-        <label for="licitacaoId">Selecione a Licitação</label>
-        <select name="licitacaoId" id="licitacaoSelect" required>
-          <!-- Options populated dynamically -->
-        </select>
-        <button type="submit">Salvar</button>
-      </form>
-      <button class="closeModal" data-modal="modalPO">Fechar</button>
-    </div>
-  </div>
-  
-  <!-- Modal: Edit PO -->
-  <div class="modal-overlay" id="modalEditPO">
-    <div class="modal">
-      <h2>Editar PO</h2>
-      <form id="formEditPO">
-        <input type="hidden" name="index">
-        <label for="elemento">Elemento</label>
-        <input type="text" name="elemento" required>
-        <label for="prioridade">Prioridade</label>
-        <select name="prioridade" required>
-          <option value="Critical">Critical</option>
-          <option value="High">High</option>
-          <option value="Normal">Normal</option>
-          <option value="Low">Low</option>
-        </select>
-        <label for="data">Data</label>
-        <input type="date" name="data" required>
-        <label for="status">Status</label>
-        <select name="status" required>
-          <option value="New">New</option>
-          <option value="OC">OC</option>
-          <option value="Waiting">Waiting</option>
-          <option value="Problem">Problem</option>
-          <option value="Accepted">Accepted</option>
-        </select>
-        <label for="valor">Valor</label>
-        <input type="number" name="valor" required>
-        <label for="arquivos">Arquivos</label>
-        <input type="text" name="arquivos">
-        <label for="observacoes">Observações</label>
-        <textarea name="observacoes"></textarea>
-        <label for="editLicitacaoSelect">Selecione a Licitação</label>
-        <select name="licitacaoId" id="editLicitacaoSelect" required>
-          <!-- Options populated dynamically -->
-        </select>
-        <button type="submit">Salvar Alterações</button>
-      </form>
-      <button class="closeModal" data-modal="modalEditPO">Fechar</button>
-    </div>
-  </div>
-  
-  <!-- Modal: Verificar OCs -->
-  <div class="modal-overlay" id="modalVerificarOCs">
-    <div class="modal" id="OCmodal">
-      <h2>OCs desta Licitação</h2>
-      <div id="consumoSummary"></div>
-      <div class="ocs-table-container">
-        <table class="table" id="tableVerificarOCs">
-          <thead>
-            <tr>
-              <th>Elemento</th>
-              <th>Prioridade</th>
-              <th>Data</th>
-              <th>Status</th>
-              <th>Valor</th>
-              <th>Arquivos</th>
-              <th>Observações</th>
-              <th>Consumos</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Filled dynamically -->
-          </tbody>
-        </table>
-      </div>
-      <button class="closeModal" data-modal="modalVerificarOCs">Fechar</button>
-    </div>
-  </div>
-  
   <!-- Modal: Comentários (Chat) -->
   <div class="modal-overlay" id="modalComentarios">
     <div class="modal modal-comentarios">
       <h2>Comentários</h2>
       <div id="chatMessages" class="chat-messages">
-        <!-- Chat bubbles appear here -->
+        <!-- Chat bubbles injected by script.js -->
       </div>
       <form id="formComentarios" class="chat-input-form">
         <input type="hidden" name="licitacaoId">
@@ -259,87 +149,47 @@
     </div>
   </div>
   
-  <!-- Modal: PO Details -->
-  <div class="modal-overlay" id="modalPODetails">
-    <div class="modal">
-      <h2>Detalhes do PO</h2>
-      <div id="poDetailContent">
-        <!-- PO details will be injected here -->
-      </div>
-      <button class="closeModal" data-modal="modalPODetails">Fechar</button>
-    </div>
-  </div>
-  
-  <!-- Modal: Licitação Info -->
+  <!-- Modal: Detalhes da Licitação -->
   <div class="modal-overlay" id="modalLicitacaoInfo">
     <div class="modal">
       <h2>Detalhes da Licitação</h2>
       <div id="licitacaoInfoContent">
-        <!-- Licitação info injected dynamically -->
+        <!-- Detailed info injected by script.js -->
       </div>
       <button class="closeModal" data-modal="modalLicitacaoInfo">Fechar</button>
     </div>
   </div>
   
-  <!-- Additional Import Estoque element -->
+  <!-- Modal: Dashboard de OCs -->
+  <div class="modal-overlay" id="modalVerificarOCs">
+    <div class="modal big-dashboard-modal">
+      <h2>Dashboard de OCs</h2>
+      <div class="stats-cards">
+        <div class="stats-card">
+          <h3>OC Total</h3>
+          <p id="ocTotalValue">-- KG</p>
+        </div>
+        <div class="stats-card">
+          <h3>Arrecadado</h3>
+          <p id="ocArrecadadoValue">-- KG</p>
+        </div>
+        <div class="stats-card">
+          <h3>Perícia</h3>
+          <p id="ocPericiaValue">-- KG</p>
+        </div>
+      </div>
+      <div class="ocs-list" id="ocDashboardContent">
+        <!-- OC items will be injected by script.js -->
+      </div>
+      <button class="closeModal" data-modal="modalVerificarOCs">Fechar</button>
+    </div>
+  </div>
+  
+  <!-- Hidden File Inputs -->
   <input type="file" id="fileEstoque" style="display: none">
+  <input type="file" id="fileOC" style="display: none">
   
-  <!-- Main Logic (script.js) -->
+  <!-- External JavaScript file -->
   <script src="script.js"></script>
-  
-  <!-- Profile Menu & Auth Logic (same as before) -->
-  <script>
-    const profileButton = document.getElementById('profileButton');
-    const profileDropdown = document.getElementById('profileDropdown');
-    const resetPasswordLink = document.getElementById('resetPasswordLink');
-    const logoutLink = document.getElementById('logoutLink');
-
-    profileButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      profileDropdown.style.display =
-        (profileDropdown.style.display === 'block') ? 'none' : 'block';
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
-        profileDropdown.style.display = 'none';
-      }
-    });
-
-    resetPasswordLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const user = firebase.auth().currentUser;
-      if (!user) {
-        alert("Nenhum usuário logado. Faça login primeiro.");
-        return;
-      }
-      try {
-        await firebase.auth().sendPasswordResetEmail(user.email);
-        alert("Email de redefinição de senha enviado para: " + user.email);
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao enviar redefinição de senha: " + error.message);
-      }
-      profileDropdown.style.display = 'none';
-    });
-
-    logoutLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      try {
-        await firebase.auth().signOut();
-        window.location.href = "index.html";
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao fazer logout: " + error.message);
-      }
-      profileDropdown.style.display = 'none';
-    });
-
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) {
-        window.location.href = "index.html";
-      }
-    });
-  </script>
 </body>
 </html>
