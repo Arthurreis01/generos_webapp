@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", async function() {
-  // Firebase configuration – replace placeholders with your actual Firebase credentials!
+  // Firebase Configuration and Initialization
   const firebaseConfig = {
     apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
     authDomain: "generos-webapp.firebaseapp.com",
@@ -9,122 +9,125 @@ document.addEventListener("DOMContentLoaded", async function() {
     appId: "1:874489491002:web:46f893c170bbd944cb8f03",
     measurementId: "G-Y3VQW229XW"
   };
-
-  // Initialize Firebase only if no apps have been initialized yet.
   if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
   }
   const db = firebase.firestore();
 
-  // Data arrays and counters
+  // Helper Functions
+  function parseNumber(str) {
+    if (!str) return 0;
+    let s = str.trim().replace(/\s+/g, '');
+    const commaIndex = s.lastIndexOf(',');
+    const dotIndex = s.lastIndexOf('.');
+    if (commaIndex > -1 && dotIndex > -1) {
+      if (commaIndex > dotIndex) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else {
+        s = s.replace(/,/g, '');
+      }
+    } else if (commaIndex > -1) {
+      s = s.replace(',', '.');
+    }
+    s = s.replace(/[^0-9.\-]/g, '');
+    return parseFloat(s) || 0;
+  }
+  function formatNumber(value) {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  }
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  function formatTime(time) {
+    const d = new Date(time);
+    if (isNaN(d.getTime())) return '';
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+  // Helper to remove all double quotes and trim whitespace (for CSV parsing)
+  function removeExtraQuotes(str) {
+    return str.replace(/"/g, '').trim();
+  }
+  function showImportLoadingModal() {
+    const modal = document.getElementById("importLoadingModal");
+    if (modal) modal.style.display = 'flex';
+  }
+  function hideImportLoadingModal() {
+    const modal = document.getElementById("importLoadingModal");
+    if (modal) modal.style.display = 'none';
+  }
+
+  // Data Arrays and Counters
   let licitacoes = [];
-  let pos = [];
   let licitacaoIdCounter = 1;
-  let poIdCounter = 1;
 
   // DOM Elements
   const fab = document.querySelector('.fab');
   const fabMenu = document.getElementById('fabMenu');
+  const btnNewLicitacao = document.getElementById('btnNewLicitacao');
+  const licitacaoCards = document.getElementById('licitacaoCards');
   const fileEstoqueInput = document.getElementById('fileEstoque');
   const btnImportEstoque = document.getElementById('btnImportEstoque');
-
-  // Modals
+  const fileOCInput = document.getElementById('fileOC');
+  const btnImportOC = document.getElementById('btnImportOC');
   const modalLicitacao = document.getElementById('modalLicitacao');
   const modalEditLicitacao = document.getElementById('modalEditLicitacao');
-  const modalPO = document.getElementById('modalPO');
-  const modalEditPO = document.getElementById('modalEditPO');
-  const modalVerificarOCs = document.getElementById('modalVerificarOCs');
   const modalComentarios = document.getElementById('modalComentarios');
-  const modalPODetails = document.getElementById('modalPODetails');
-  const modalLicitacaoInfo = document.getElementById('modalLicitacaoInfo');
-
-  // Forms
+  const modalVerificarOCs = document.getElementById('modalVerificarOCs');
   const formLicitacao = document.getElementById('formLicitacao');
   const formEditLicitacao = document.getElementById('formEditLicitacao');
-  const formPO = document.getElementById('formPO');
-  const formEditPO = document.getElementById('formEditPO');
   const formComentarios = document.getElementById('formComentarios');
-
-  // Dropdowns for PO forms
-  const licitacaoSelect = document.getElementById('licitacaoSelect');
-  const editLicitacaoSelect = document.getElementById('editLicitacaoSelect');
-
-  // Chat fields
   const chatMessages = document.getElementById('chatMessages');
-
-  // UI Containers
-  const licitacaoCards = document.getElementById('licitacaoCards');
-  const newPOsCol = document.getElementById('newPOs');
-  const ocPOsCol = document.getElementById('ocPOs');
-  const acceptedPOsCol = document.getElementById('acceptedPOs');
-  const alertPOsCol = document.getElementById('alertPOs');
-  const archivedPOsCol = document.getElementById('archivedPOs');
-
-  // Search bars
   const licitacoesSearch = document.getElementById('licitacoesSearch');
-  const poSearch = document.getElementById('poSearch');
-
-  // Category filter radios
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
 
-  // Buttons
-  const btnNewLicitacao = document.getElementById('btnNewLicitacao');
-  const btnNewPO = document.getElementById('btnNewPO');
+  // Modal Show/Close functions
+  function openModal(modal) {
+    if (modal) modal.style.display = 'flex';
+  }
+  function closeModal(modal) {
+    if (modal) modal.style.display = 'none';
+  }
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeModal(overlay);
+    });
+  });
+  document.querySelectorAll('.closeModal').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const modalId = btn.getAttribute('data-modal');
+      closeModal(document.getElementById(modalId));
+    });
+  });
 
-  // PROFILE MENU & AUTH LOGIC
-  const profileButton = document.getElementById('profileButton');
-  const profileDropdown = document.getElementById('profileDropdown');
-  const resetPasswordLink = document.getElementById('resetPasswordLink');
-  const logoutLink = document.getElementById('logoutLink');
-
-  profileButton.addEventListener('click', (e) => {
+  // FAB Menu Toggle
+  fab.addEventListener('click', function(e) {
     e.stopPropagation();
-    profileDropdown.style.display =
-      (profileDropdown.style.display === 'block') ? 'none' : 'block';
+    fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
   });
-
-  document.addEventListener('click', (e) => {
-    if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
-      profileDropdown.style.display = 'none';
+  document.addEventListener('click', function(e) {
+    if (!fabMenu.contains(e.target) && e.target !== fab) {
+      fabMenu.style.display = 'none';
     }
   });
+  if (btnNewLicitacao) {
+    btnNewLicitacao.addEventListener('click', function() {
+      if (formLicitacao) formLicitacao.reset();
+      openModal(modalLicitacao);
+    });
+  }
 
-  resetPasswordLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const user = firebase.auth().currentUser;
-    if (!user) {
-      alert("Nenhum usuário logado. Faça login primeiro.");
-      return;
-    }
-    try {
-      await firebase.auth().sendPasswordResetEmail(user.email);
-      alert("Email de redefinição de senha enviado para: " + user.email);
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao enviar redefinição de senha: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
-
-  logoutLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      await firebase.auth().signOut();
-      window.location.href = "index.html";
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao fazer logout: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
-
-  firebase.auth().onAuthStateChanged((user) => {
-    if (!user) {
-      window.location.href = "index.html";
-    }
-  });
-
-  // CSV Export Helper Function
+  // CSV Export Function
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
     data.forEach(item => {
@@ -144,306 +147,481 @@ document.addEventListener("DOMContentLoaded", async function() {
     document.getElementById("exportLicitacoesBtn").addEventListener("click", function() {
       const headers = [
         "id", "numeroProcesso", "nomeEmpresa", "telefoneEmpresa", "itemSolicitado",
-        "vencimentoAta", "status", "totalQuantity", "balance", "ocTotal", "ocConsumed", "categoria", "cmm"
+        "vencimentoAta", "status", "totalQuantity", "balance", "ocTotal", "ocConsumed",
+        "categoria", "cmm", "pi", "comprometido"
       ];
       exportDataToCSV(licitacoes, headers, "licitacoes.xls");
     });
   }
-  if (document.getElementById("exportPOBtn")) {
-    document.getElementById("exportPOBtn").addEventListener("click", function() {
-      const headers = [
-        "id", "elemento", "prioridade", "data", "status", "creationDate",
-        "ocDate", "acceptDate", "alertReason", "valor", "arquivos", "observacoes", "licitacaoId"
-      ];
-      exportDataToCSV(pos, headers, "pos.xls");
-    });
-  }
 
-  // Import Estoque Functionality (CSV/Excel)
+  // Import Estoque (updates disp.p/lib via spreadsheet)
   if (btnImportEstoque && fileEstoqueInput) {
     btnImportEstoque.addEventListener('click', function() {
       fileEstoqueInput.click();
     });
-    fileEstoqueInput.addEventListener('change', async function importarPlanilhaEstoque() {
+    fileEstoqueInput.addEventListener('change', async function() {
       const file = fileEstoqueInput.files[0];
       if (!file) return;
-      const ext = file.name.split('.').pop().toLowerCase();
-      let text = "";
-      if (ext === "csv") {
-        text = await file.text();
-      } else if (ext === "xls" || ext === "xlsx") {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: "array" });
-        const firstSheet = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheet];
-        text = XLSX.utils.sheet_to_csv(worksheet);
-      } else {
-        alert("Formato de arquivo não suportado. Use CSV ou Excel (xls/xlsx).");
-        return;
-      }
-      const lines = text.split(/\r?\n/);
-      const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
-      const piIndex = headers.indexOf("PI");
-      const qtdeIndex = headers.indexOf("QTDE_DISPONIVEL");
-      if (piIndex < 0 || qtdeIndex < 0) {
-        alert("Colunas PI ou QTDE_DISPONIVEL não encontradas.");
-        return;
-      }
-      const updates = [];
-      for (let i = 1; i < lines.length; i++) {
-        const row = lines[i].split(",");
-        if (row.length < headers.length) continue;
-        const pi = row[piIndex].trim();
-        let qtdeStr = row[qtdeIndex].trim();
-        qtdeStr = qtdeStr.replace(/\./g, "").replace(/,/g, ".");
-        const qtde = parseFloat(qtdeStr) || 0;
-        if (pi) {
-          updates.push({ pi, qtde });
+      showImportLoadingModal();
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        let text = "";
+        if (ext === "csv") {
+          text = await file.text();
+        } else if (ext === "xls" || ext === "xlsx") {
+          const data = await file.arrayBuffer();
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheet = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheet];
+          text = XLSX.utils.sheet_to_csv(worksheet);
+        } else {
+          alert("Formato de arquivo não suportado. Use CSV ou Excel (xls/xlsx).");
+          hideImportLoadingModal();
+          return;
         }
-      }
-      for (const up of updates) {
-        const lic = licitacoes.find(l => l.pi && l.pi.trim().toUpperCase() === up.pi.toUpperCase());
-        if (lic) {
-          lic.balance = up.qtde;
-          try {
-            await db.collection("licitacoes").doc(lic.docId).update({ balance: up.qtde });
-          } catch (err) {
-            console.error("Erro ao atualizar Firestore:", err);
+        const lines = text.split(/\r?\n/);
+        const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
+        const piIndex = headers.indexOf("PI");
+        const dispIndex = headers.indexOf("QTDE_DISPONIVEL");
+        const compIndex = headers.indexOf("QTDE_COMPROMETIDA");
+        if (piIndex < 0 || dispIndex < 0 || compIndex < 0) {
+          alert("Colunas PI, QTDE_DISPONIVEL ou QTDE_COMPROMETIDA não encontradas.");
+          hideImportLoadingModal();
+          return;
+        }
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i].split(",");
+          if (row.length < headers.length) continue;
+          const pi = removeExtraQuotes(row[piIndex]).toUpperCase();
+          const dispVal = parseNumber(removeExtraQuotes(row[dispIndex]));
+          const compVal = parseNumber(removeExtraQuotes(row[compIndex]));
+          // Update all licitações with matching PI using a for-of loop
+          const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi);
+          if (matchingLics.length > 0) {
+            for (let lic of matchingLics) {
+              lic.balance = dispVal;
+              lic.comprometido = compVal;
+              try {
+                await db.collection("licitacoes").doc(lic.docId).update({
+                  balance: dispVal,
+                  comprometido: compVal
+                });
+              } catch (err) {
+                console.error("Erro ao atualizar Firestore (Estoque):", err);
+              }
+            }
           }
         }
-      }
-      renderLicitacoes();
-      alert("Planilha importada e 'Disp. p/lib.' atualizado com sucesso!");
-    });
-  }
-
-  // FAB Menu Toggle
-  fab.addEventListener('click', function(e) {
-    e.stopPropagation();
-    fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
-  });
-  document.addEventListener('click', function(e) {
-    if (!fabMenu.contains(e.target) && e.target !== fab) {
-      fabMenu.style.display = 'none';
-    }
-  });
-
-  // Modal Show/Close Functions
-  function openModal(modal) { modal.style.display = 'flex'; }
-  function closeModal(modal) { modal.style.display = 'none'; }
-  document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', function(e) {
-      if (e.target === overlay) closeModal(overlay);
-    });
-  });
-  document.querySelectorAll('.closeModal').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const modalId = btn.getAttribute('data-modal');
-      closeModal(document.getElementById(modalId));
-    });
-  });
-
-  // Helper Functions for Dropdowns and Date Formatting
-  function populateLicitacaoDropdown() {
-    licitacaoSelect.innerHTML = '<option value="">Selecione a Licitação</option>';
-    licitacoes.forEach(lic => {
-      const option = document.createElement('option');
-      option.value = lic.id;
-      option.textContent = `${lic.itemSolicitado} (ID ${lic.id})`;
-      licitacaoSelect.appendChild(option);
-    });
-  }
-  function populateEditLicitacaoDropdown(selectedId) {
-    editLicitacaoSelect.innerHTML = '<option value="">Selecione a Licitação</option>';
-    licitacoes.forEach(lic => {
-      const option = document.createElement('option');
-      option.value = lic.id;
-      option.textContent = `${lic.itemSolicitado} (ID ${lic.id})`;
-      editLicitacaoSelect.appendChild(option);
-    });
-    editLicitacaoSelect.value = selectedId;
-  }
-  function isCloseToDue(dateStr) {
-    if (!dateStr) return false;
-    const now = new Date();
-    const due = new Date(dateStr);
-    if (isNaN(due.getTime())) return false;
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(now.getMonth() + 3);
-    return due < threeMonthsFromNow;
-  }
-  function formatDate(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-  function formatTime(time) {
-    const d = new Date(time);
-    if (isNaN(d.getTime())) return '';
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
-  function formatDateBrazil(ds) {
-    if (!ds) return "";
-    const d = new Date(ds);
-    return isNaN(d.getTime()) ? ds : d.toLocaleDateString("pt-BR");
-  }
-
-  // Manual Edit of "Disp. p/lib."
-  window.editBalance = async function(licId) {
-    const lic = licitacoes.find(l => l.id === licId);
-    if (!lic) return;
-    const newValStr = prompt("Digite o novo valor para 'Disp. p/lib':", lic.balance);
-    if (newValStr === null) return;
-    const newVal = parseFloat(newValStr);
-    if (isNaN(newVal)) {
-      alert("Valor inválido.");
-      return;
-    }
-    lic.balance = newVal;
-    try {
-      await db.collection("licitacoes").doc(lic.docId).update({ balance: newVal });
-    } catch (error) {
-      console.error("Error updating disp. p/lib:", error);
-    }
-    renderLicitacoes();
-  };
-
-  // New Function: Inserir Consumo para OC – now linked to a specific OC
-  window.inserirConsumoOC = async function(index) {
-    const po = pos[index];
-    if (!po || (po.status !== "OC" && po.status !== "Accepted")) return;
-    if (!po.consumos) {
-      po.consumos = [];
-    }
-    const totalConsumed = po.consumos.reduce((acc, item) => acc + item.amount, 0);
-    const available = po.valor - totalConsumed;
-    const consumptionInput = prompt(`OC ${po.elemento}:\nValor total: ${po.valor} KG\nJá consumido: ${totalConsumed} KG\nDisponível: ${available} KG\nDigite o valor do consumo:`, "");
-    if (consumptionInput === null) return;
-    const consumption = parseFloat(consumptionInput);
-    if (isNaN(consumption) || consumption <= 0) {
-      alert("Valor inválido.");
-      return;
-    }
-    if (consumption > available) {
-      alert("Consumo excede o saldo disponível.");
-      return;
-    }
-    const dateInput = prompt("Digite a data do consumo (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
-    if (!dateInput) {
-      alert("Data inválida.");
-      return;
-    }
-    const consumptionEntry = { date: dateInput, amount: consumption };
-    po.consumos.push(consumptionEntry);
-    try {
-      await db.collection("pos").doc(po.docId).update({ consumos: po.consumos });
-    } catch (error) {
-      console.error("Error updating consumption for PO:", error);
-    }
-    renderPOBoard();
-    if(document.getElementById("tableVerificarOCs")) {
-      const licId = po.licitacaoId;
-      verificarOCs(licId);
-    }
-  };
-
-  // PO Functions
-  window.markAsAccepted = async function(index) {
-    const po = pos[index];
-    if (!po || po.status !== "OC") return;
-    po.status = "Accepted";
-    po.acceptDate = new Date().toISOString();
-    po.alertReason = "";
-    try {
-      await db.collection("pos").doc(po.docId).update(po);
-    } catch (error) {
-      console.error("Error updating PO in markAsAccepted:", error);
-    }
-    renderPOBoard();
-  };
-
-  window.convertToOC = async function(index) {
-    const po = pos[index];
-    if (!po || po.status !== "New") return;
-    const ocNumber = prompt("Digite o número da OC:");
-    if (!ocNumber) return;
-    po.elemento = ocNumber;
-    po.status = "OC";
-    po.ocDate = new Date().toISOString();
-    po.alertReason = "";
-    // Initialize consumption tracking for this OC
-    po.consumos = [];
-    const lic = licitacoes.find(l => l.id === po.licitacaoId);
-    if (lic) {
-      lic.ocTotal = (lic.ocTotal || 0) + po.valor;
-      try {
-        await db.collection("licitacoes").doc(lic.docId).update({ ocTotal: lic.ocTotal });
+        renderLicitacoes();
+        alert("Planilha de Estoque importada e valores atualizados com sucesso!");
       } catch (error) {
-        console.error("Error updating licitacao in convertToOC:", error);
+        console.error(error);
+        alert("Erro ao importar Estoque: " + error.message);
+      } finally {
+        hideImportLoadingModal();
+        fileEstoqueInput.value = "";
       }
+    });
+  }
+
+  // Import OC (now matching first by PI and then by NUMERO_PROCESSO)
+  if (btnImportOC && fileOCInput) {
+    btnImportOC.addEventListener('click', function() {
+      fileOCInput.click();
+    });
+    fileOCInput.addEventListener('change', async function() {
+      const file = fileOCInput.files[0];
+      if (!file) return;
+      showImportLoadingModal();
+      try {
+        const ext = file.name.split('.').pop().toLowerCase();
+        let text = "";
+        if (ext === "csv") {
+          text = await file.text();
+        } else if (ext === "xls" || ext === "xlsx") {
+          const data = await file.arrayBuffer();
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheet = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheet];
+          text = XLSX.utils.sheet_to_csv(worksheet);
+        } else {
+          alert("Formato de arquivo não suportado. Use CSV ou Excel (xls/xlsx).");
+          hideImportLoadingModal();
+          return;
+        }
+        const lines = text.split(/\r?\n/);
+        const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
+        // Get index for PI and NUMERO_PROCESSO along with others
+        const piIndex = headers.indexOf("PI");
+        const procIndex = headers.indexOf("NUMERO_PROCESSO");
+        const codIndex = headers.indexOf("CODIGO");
+        const qtdeCompIndex = headers.indexOf("QTDE_COMPRADA");
+        const qtdeArrIndex = headers.indexOf("QTDE_ARRECADADA");
+        const qtdePericiaIndex = headers.indexOf("QTDE_PERICIA_ESTOCAGEM");
+        if (piIndex < 0 || procIndex < 0 || codIndex < 0 || qtdeCompIndex < 0 ||
+            qtdeArrIndex < 0 || qtdePericiaIndex < 0) {
+          alert("Uma ou mais colunas (PI, NUMERO_PROCESSO, CODIGO, QTDE_COMPRADA, QTDE_ARRECADADA, QTDE_PERICIA_ESTOCAGEM) não foram encontradas.");
+          hideImportLoadingModal();
+          return;
+        }
+        let errorMessages = [];
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i].split(",");
+          if (row.length < headers.length) continue;
+          const piValue = removeExtraQuotes(row[piIndex]).toUpperCase();
+          const numProc = removeExtraQuotes(row[procIndex]).toUpperCase();
+          const codigo = removeExtraQuotes(row[codIndex]);
+          const qtdeComp = parseNumber(removeExtraQuotes(row[qtdeCompIndex]));
+          const qtdeArr = parseNumber(removeExtraQuotes(row[qtdeArrIndex]));
+          const qtdePericia = parseNumber(removeExtraQuotes(row[qtdePericiaIndex]));
+          // Find licitação by first matching PI and then matching process number
+          const lic = licitacoes.find(l =>
+            l.pi && l.pi.toUpperCase() === piValue &&
+            l.numeroProcesso && l.numeroProcesso.toUpperCase() === numProc
+          );
+          if (!lic) {
+            errorMessages.push(`Licitação com PI ${piValue} e Processo ${numProc} não encontrada. Linha ${i+1}`);
+            continue;
+          }
+          if (!lic.ocs) lic.ocs = [];
+          const existingOC = lic.ocs.find(oc => oc.codigo === codigo);
+          if (existingOC) {
+            existingOC.qtdeComprada = qtdeComp;
+            existingOC.qtdeArrecadada = qtdeArr;
+            existingOC.qtdePericia = qtdePericia;
+            // Update process number if needed
+            existingOC.numeroProcesso = numProc;
+          } else {
+            lic.ocs.push({
+              codigo,
+              qtdeComprada: qtdeComp,
+              qtdeArrecadada: qtdeArr,
+              qtdePericia,
+              numeroProcesso: numProc
+            });
+          }
+        }
+        // Recalculate totals for OC-related fields
+        licitacoes.forEach(lic => {
+          if (lic.ocs && lic.ocs.length > 0) {
+            lic.ocTotal = lic.ocs.reduce((acc, oc) => acc + oc.qtdeComprada, 0);
+            lic.ocConsumed = lic.ocs.reduce((acc, oc) => acc + oc.qtdeArrecadada, 0);
+          }
+        });
+        // Update Firestore for each licitação that has OCs
+        for (const lic of licitacoes) {
+          if (lic.ocs) {
+            try {
+              await db.collection("licitacoes").doc(lic.docId).update({
+                ocTotal: lic.ocTotal,
+                ocConsumed: lic.ocConsumed,
+                ocs: lic.ocs
+              });
+            } catch (err) {
+              console.error("Erro ao atualizar Firestore (OC):", err);
+              errorMessages.push(`Erro ao atualizar licitação com Processo ${lic.numeroProcesso}`);
+            }
+          }
+        }
+        renderLicitacoes();
+        if (errorMessages.length > 0) {
+          alert("Alguns itens não foram importados:\n" + errorMessages.join("\n"));
+        } else {
+          alert("Planilha de OC importada com sucesso!");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Erro ao importar OC: " + error.message);
+      } finally {
+        hideImportLoadingModal();
+        fileOCInput.value = "";
+        const lastUpdateElem = document.getElementById("lastUpdateInfo");
+        if (lastUpdateElem) {
+          const now = new Date();
+          lastUpdateElem.textContent = "Última atualização: " + now.toLocaleString();
+        }
+      }
+    });
+  }
+
+  // Group licitações by PI using updated aggregation for newCommentCount
+  function groupByItem(licitacoes) {
+    const map = {};
+    licitacoes.forEach(lic => {
+      const piKey = (lic.pi || "").trim().toUpperCase();
+      if (!map[piKey]) {
+        map[piKey] = {
+          pi: lic.pi,
+          itemSolicitado: lic.itemSolicitado,
+          categoria: lic.categoria,
+          cmm: lic.cmm || 0,
+          totalQuantity: lic.totalQuantity || 0,
+          ocConsumed: lic.ocConsumed || 0,
+          ocTotal: lic.ocTotal || 0,
+          balance: lic.balance || 0,
+          comprometido: lic.comprometido || 0,
+          licitations: [lic],
+          comentarios: lic.comentarios || [],
+          newCommentCount: lic.newCommentCount || 0
+        };
+      } else {
+        map[piKey].totalQuantity += lic.totalQuantity || 0;
+        map[piKey].ocConsumed += lic.ocConsumed || 0;
+        map[piKey].ocTotal += lic.ocTotal || 0;
+        // Overwrite imported fields with latest values (assumed identical for the group)
+        map[piKey].balance = lic.balance || 0;
+        map[piKey].comprometido = lic.comprometido || 0;
+        // Instead of summing, take the maximum newCommentCount
+        map[piKey].newCommentCount = Math.max(map[piKey].newCommentCount, lic.newCommentCount || 0);
+        map[piKey].comentarios = map[piKey].comentarios.concat(lic.comentarios || []);
+        map[piKey].licitations.push(lic);
+      }
+    });
+    return Object.values(map);
+  }
+
+  // Render item cards
+  function renderLicitacoes() {
+    if (!licitacaoCards) return;
+    licitacaoCards.innerHTML = "";
+    // Flex layout settings
+    licitacaoCards.style.display = "flex";
+    licitacaoCards.style.flexWrap = "wrap";
+    licitacaoCards.style.justifyContent = "flex-start";
+
+    let items = groupByItem(licitacoes);
+    const searchTerm = licitacoesSearch ? licitacoesSearch.value.toLowerCase() : "";
+    if (searchTerm) {
+      items = items.filter(item =>
+        (item.itemSolicitado || "").toLowerCase().includes(searchTerm) ||
+        (item.pi || "").toLowerCase().includes(searchTerm)
+      );
     }
-    try {
-      await db.collection("pos").doc(po.docId).update(po);
-    } catch (error) {
-      console.error("Error updating PO in convertToOC:", error);
+    let categoryFilter = "all";
+    filterCategoryRadios.forEach(radio => {
+      if (radio.checked) categoryFilter = radio.value;
+    });
+    if (categoryFilter !== "all") {
+      items = items.filter(item => (item.categoria || "").toLowerCase() === categoryFilter.toLowerCase());
     }
-    renderPOBoard();
-    renderLicitacoes();
+    items.sort((a, b) => (a.itemSolicitado || "").localeCompare(b.itemSolicitado || ""));
+    items.forEach(item => {
+      const total = item.totalQuantity;
+      const used = item.ocConsumed;
+      const remaining = total - used;
+      let usageHTML = "";
+      if (item.licitations && item.licitations.length > 0) {
+        usageHTML = item.licitations.map(lic => {
+          const usedLic = lic.ocConsumed || 0;
+          const totalLic = lic.totalQuantity || 0;
+          const percent = totalLic > 0 ? Math.round((usedLic / totalLic) * 100) : 0;
+          let colorClass = "usage-green";
+          if (percent >= 80) colorClass = "usage-red";
+          else if (percent >= 50) colorClass = "usage-orange";
+          return `
+            <div class="usage-row ${colorClass}">
+              <span>${percent}% used</span>
+              <span>Licitação ${lic.numeroProcesso}</span>
+              <span>${formatDate(lic.vencimentoAta)}</span>
+            </div>
+          `;
+        }).join("");
+      }
+      let autonomia = "N/A";
+      if (item.cmm > 0) {
+        autonomia = item.balance / item.cmm;
+      }
+      const dispPlusComp = item.balance + item.comprometido;
+      let autCob = "N/A";
+      if (item.cmm > 0) {
+        autCob = dispPlusComp / item.cmm;
+      }
+      const card = document.createElement("div");
+      card.className = "item-card fancy-card";
+      card.style.margin = "10px";
+      card.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+      card.style.backgroundColor = "#fff";
+      card.style.width = "300px";
+      card.innerHTML = `
+        <h2 class="item-name">${item.itemSolicitado || ""}</h2>
+        <p style="margin-bottom: 0.75rem;">
+          Restam <strong>${formatNumber(remaining)}KG</strong> de <strong>${formatNumber(total)}KG</strong>
+        </p>
+        <div class="lic-usage-list">
+          ${usageHTML}
+        </div>
+        <div class="item-stats">
+          <p><strong>Autonomia:</strong> <span>${formatNumber(autonomia)} meses</span></p>
+          <p><strong>CMM:</strong> <span>${formatNumber(item.cmm)}</span></p>
+          <p><strong>Disp. p/lib:</strong> <span>${formatNumber(item.balance)} KG</span></p>
+          <p><strong>Comprometido:</strong> <span>${formatNumber(item.comprometido)} KG</span></p>
+          <p><strong>Disp. + comp.:</strong> <span>${formatNumber(dispPlusComp)} KG</span></p>
+          <p><strong>Aut. c/ cob.:</strong> <span>${formatNumber(autCob)} meses</span></p>
+          <p><strong>Em OC:</strong> <span>${formatNumber(item.ocConsumed)} KG</span></p>
+        </div>
+        <div class="card-actions">
+          <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
+            <i class="bi bi-chat-dots"></i>
+            ${item.newCommentCount && item.newCommentCount > 0 ? `<span class="new-comment-badge">${item.newCommentCount}</span>` : ""}
+          </button>
+          <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
+            <i class="bi bi-bar-chart"></i>
+          </button>
+          <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Adicionar nova licitação para este PI">
+            <i class="bi bi-plus"></i>
+          </button>
+          <button onclick="editItemByPI('${item.pi}')" title="Editar">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button onclick="deleteItemByPI('${item.pi}')" title="Excluir">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      `;
+      licitacaoCards.appendChild(card);
+    });
+  }
+
+  // Chat functions
+  window.openComentariosByItem = function(pi) {
+    // Use the first licitação's comments for the given PI
+    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (!lic) return;
+    
+    chatMessages.innerHTML = "";
+    (lic.comentarios || []).forEach((msg, index) => {
+      const bubble = document.createElement('div');
+      bubble.className = "chat-bubble";
+      bubble.innerHTML = `
+        <p>${msg.text}</p>
+        <span class="chat-time">${formatTime(msg.time)}</span>
+        <button onclick="deleteChatMessage('${pi}', ${index})">Delete</button>
+      `;
+      chatMessages.appendChild(bubble);
+    });
+    if (formComentarios.elements["licitacaoId"]) {
+      formComentarios.elements["licitacaoId"].value = pi;
+    }
+    openModal(modalComentarios);
   };
 
-  window.deletePO = async function(index) {
-    const po = pos[index];
-    if (!po) return;
-    if (!confirm(`Tem certeza de que deseja excluir o PO "${po.elemento}"?`)) return;
-    if (po.status === "OC") {
-      const lic = licitacoes.find(l => l.id === po.licitacaoId);
-      if (lic) {
-        lic.ocTotal = (lic.ocTotal || 0) - po.valor;
+  window.deleteChatMessage = async function(pi, index) {
+    // Find all licitações with this PI (assumed to share the same comments)
+    const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (!group || group.length === 0) return;
+    group.forEach(lic => {
+      if (lic.comentarios && lic.comentarios.length > index) {
+        lic.comentarios.splice(index, 1);
+        lic.newCommentCount = lic.newCommentCount > 0 ? lic.newCommentCount - 1 : 0;
+      }
+    });
+    // Update Firestore for each licitação in the group
+    for (const lic of group) {
+      try {
+        await db.collection("licitacoes").doc(lic.docId).update({
+          comentarios: lic.comentarios,
+          newCommentCount: lic.newCommentCount
+        });
+      } catch (err) {
+        console.error("Erro ao deletar comentário para PI " + pi, err);
+      }
+    }
+    renderLicitacoes();
+    window.openComentariosByItem(pi);
+  };
+
+  // OC Dashboard for group by PI (delete button already includes a confirm)
+  window.verificarOCsByItem = function(pi) {
+    const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (group.length === 0) return;
+    let totalOC = 0;
+    let totalArrecadado = 0;
+    let totalPericia = 0;
+    group.forEach(lic => {
+      totalOC += lic.ocTotal || 0;
+      totalArrecadado += lic.ocConsumed || 0;
+      if (lic.ocs && lic.ocs.length > 0) {
+        lic.ocs.forEach(oc => {
+          totalPericia += (oc.qtdePericia || 0);
+        });
+      }
+    });
+    if (document.getElementById("ocTotalValue")) {
+      document.getElementById("ocTotalValue").textContent = formatNumber(totalOC) + " KG";
+    }
+    if (document.getElementById("ocArrecadadoValue")) {
+      document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArrecadado) + " KG";
+    }
+    if (document.getElementById("ocPericiaValue")) {
+      document.getElementById("ocPericiaValue").textContent = formatNumber(totalPericia) + " KG";
+    }
+    const dashboardDiv = document.getElementById("ocDashboardContent");
+    if (!dashboardDiv) return;
+    let html = "";
+    group.forEach(lic => {
+      if (lic.ocs && lic.ocs.length > 0) {
+        const ocHtml = lic.ocs.map(oc => `
+          <div class="oc-item">
+            <p><strong>OC Código:</strong> ${oc.codigo}</p>
+            <p><strong>OC Total:</strong> ${formatNumber(oc.qtdeComprada)} KG</p>
+            <p><strong>Arrecadado:</strong> ${formatNumber(oc.qtdeArrecadada)} KG</p>
+            <p><strong>Perícia:</strong> ${formatNumber(oc.qtdePericia)} KG</p>
+            <p><strong>Número do Processo:</strong> ${oc.numeroProcesso}</p>
+            <button class="delete-oc-btn" data-pi="${lic.pi}" data-codigo="${oc.codigo}" title="Excluir OC">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        `).join("<hr>");
+        html += ocHtml + "<br>";
+      } else {
+        html += `<div class="oc-item"><p>Nenhuma OC cadastrada para ${lic.numeroProcesso}</p></div><br>`;
+      }
+    });
+    if (!html) html = "<p>Nenhuma OC cadastrada.</p>";
+    dashboardDiv.innerHTML = html;
+    // Attach delete listeners with confirmation
+    dashboardDiv.querySelectorAll('.delete-oc-btn').forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const pi = this.getAttribute('data-pi');
+        const codigo = this.getAttribute('data-codigo');
+        if (confirm("Tem certeza que deseja excluir esta OC?")) {
+          deleteOC(pi, codigo);
+        }
+      });
+    });
+    openModal(modalVerificarOCs);
+  };
+
+  // Function to delete a specific OC for all licitações with the given PI
+  window.deleteOC = async function(pi, codigo) {
+    const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (matchingLics.length === 0) return;
+    for (const lic of matchingLics) {
+      if (lic.ocs) {
+        lic.ocs = lic.ocs.filter(oc => oc.codigo !== codigo);
+        lic.ocTotal = lic.ocs.reduce((acc, oc) => acc + oc.qtdeComprada, 0);
+        lic.ocConsumed = lic.ocs.reduce((acc, oc) => acc + oc.qtdeArrecadada, 0);
         try {
-          await db.collection("licitacoes").doc(lic.docId).update({ ocTotal: lic.ocTotal });
-        } catch (error) {
-          console.error("Error updating licitacao in PO deletion:", error);
+          await db.collection("licitacoes").doc(lic.docId).update({
+            ocs: lic.ocs,
+            ocTotal: lic.ocTotal,
+            ocConsumed: lic.ocConsumed
+          });
+        } catch (err) {
+          console.error("Erro ao excluir OC para PI " + lic.pi, err);
         }
       }
     }
-    try {
-      await db.collection("pos").doc(po.docId).delete();
-    } catch (error) {
-      console.error("Error deleting PO:", error);
-    }
-    pos.splice(index, 1);
-    renderPOBoard();
     renderLicitacoes();
   };
 
-  window.editPO = function(index) {
-    const po = pos[index];
-    if (!po) return;
-    formEditPO.reset();
-    formEditPO.elements['index'].value = index;
-    formEditPO.elements['elemento'].value = po.elemento;
-    formEditPO.elements['prioridade'].value = po.prioridade;
-    formEditPO.elements['data'].value = po.data;
-    formEditPO.elements['status'].value = po.status;
-    formEditPO.elements['valor'].value = po.valor;
-    formEditPO.elements['arquivos'].value = po.arquivos || "";
-    formEditPO.elements['observacoes'].value = po.observacoes || "";
-    populateEditLicitacaoDropdown(po.licitacaoId);
-    openModal(modalEditPO);
-  };
-
-  // Licitação Functions
-  window.editLicitacao = function(id) {
-    const lic = licitacoes.find(l => l.id === id);
+  // Edit / Delete licitação by PI
+  window.editItemByPI = function(pi) {
+    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
     if (!lic) return;
-    formEditLicitacao.reset();
-    formEditLicitacao.elements['id'].value = lic.id;
+    if (formEditLicitacao) formEditLicitacao.reset();
+    if (formEditLicitacao.elements['id']) formEditLicitacao.elements['id'].value = lic.id;
     formEditLicitacao.elements['numeroProcesso'].value = lic.numeroProcesso;
     formEditLicitacao.elements['nomeEmpresa'].value = lic.nomeEmpresa;
     formEditLicitacao.elements['telefoneEmpresa'].value = lic.telefoneEmpresa;
@@ -457,432 +635,37 @@ document.addEventListener("DOMContentLoaded", async function() {
     openModal(modalEditLicitacao);
   };
 
-  window.deleteLicitacao = async function(id) {
-    const lic = licitacoes.find(l => l.id === id);
-    if (!lic) return;
-    if (!confirm(`Tem certeza de que deseja excluir a licitação "${lic.itemSolicitado}"?`)) return;
-    try {
-      await db.collection("licitacoes").doc(lic.docId).delete();
-    } catch (error) {
-      console.error("Error deleting licitacao:", error);
+  window.deleteItemByPI = async function(pi) {
+    if (!confirm("Tem certeza que deseja excluir TODAS as licitações deste PI?")) return;
+    const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    for (const lic of group) {
+      try {
+        await db.collection("licitacoes").doc(lic.docId).delete();
+      } catch (err) {
+        console.error("Error deleting licitacao:", err);
+      }
+      licitacoes = licitacoes.filter(x => x.id !== lic.id);
     }
-    licitacoes = licitacoes.filter(l => l.id !== id);
     renderLicitacoes();
   };
 
-  window.showLicitacaoDetails = function(id) {
-    const lic = licitacoes.find(l => l.id === id);
-    if (!lic) return;
-    const infoDiv = document.getElementById("licitacaoInfoContent");
-    if (!infoDiv) return;
-    infoDiv.innerHTML = `
-      <p><strong>Número do Processo:</strong> ${lic.numeroProcesso}</p>
-      <p><strong>Empresa:</strong> ${lic.nomeEmpresa}</p>
-      <p><strong>Telefone:</strong> ${lic.telefoneEmpresa}</p>
-    `;
-    openModal(modalLicitacaoInfo);
+  // New function: Add New Licitação for existing PI
+  window.addNewLicitacaoForPI = function(pi) {
+    if (formLicitacao) {
+      formLicitacao.reset();
+      formLicitacao.elements['pi'].value = pi;
+      const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+      if (lic) {
+        formLicitacao.elements['itemSolicitado'].value = lic.itemSolicitado;
+        formLicitacao.elements['categoria'].value = lic.categoria;
+        formLicitacao.elements['balance'].value = lic.totalQuantity || 0;
+        formLicitacao.elements['cmm'].value = lic.cmm || 0;
+      }
+      openModal(modalLicitacao);
+    }
   };
 
-  // Badge Helpers for UI
-  function getPriorityBadge(priority) {
-    switch(priority) {
-      case 'Critical':   return `<span class="priority-badge critical">${priority}</span>`;
-      case 'High':       return `<span class="priority-badge high">${priority}</span>`;
-      case 'Normal':     return `<span class="priority-badge normal">${priority}</span>`;
-      case 'Low':        return `<span class="priority-badge low">${priority}</span>`;
-      default:           return priority;
-    }
-  }
-  function getStatusBadge(status) {
-    switch(status) {
-      case 'Accepted':   return `<span class="status-badge accepted">${status}</span>`;
-      case 'OC':         return `<span class="status-badge oc">${status}</span>`;
-      case 'Archived':   return `<span class="status-badge archived">${status}</span>`;
-      case 'New':        return `<span class="status-badge new">${status}</span>`;
-      default:           return `<span class="status-badge">${status}</span>`;
-    }
-  }
-
-  // Verificar OCs – refined UI
-  window.verificarOCs = function(licitacaoId) {
-    const lic = licitacoes.find(l => l.id === licitacaoId);
-    if (!lic) return;
-    const summaryDiv = document.getElementById("consumoSummary");
-    if (summaryDiv) {
-      let totalOC = lic.ocTotal || 0;
-      let totalConsumed = 0;
-      pos.forEach(po => {
-        if (po.licitacaoId === licitacaoId && (po.status === "OC" || po.status === "Accepted" || po.status === "Archived")) {
-          if (po.consumos && po.consumos.length > 0) {
-            totalConsumed += po.consumos.reduce((acc, item) => acc + item.amount, 0);
-          }
-        }
-      });
-      const remaining = totalOC - totalConsumed;
-      summaryDiv.innerHTML = `
-        <p><strong>OC Total:</strong> ${totalOC} KG</p>
-        <p><strong>Total Consumido:</strong> ${totalConsumed} KG</p>
-        <p><strong>Saldo Geral:</strong> ${remaining} KG</p>
-        <hr>
-      `;
-    }
-    const ocList = pos.filter(po =>
-      po.licitacaoId === licitacaoId &&
-      (po.status === "OC" || po.status === "Accepted" || po.status === "Archived")
-    );
-    const tableBody = document.querySelector('#tableVerificarOCs tbody');
-    tableBody.innerHTML = "";
-    ocList.forEach(oc => {
-      const idx = pos.findIndex(p => p.id === oc.id);
-
-      // Build a bullet-list of consumptions
-      let consumptionHtml = "";
-      if (oc.consumos && oc.consumos.length > 0) {
-        const totalConsumedOC = oc.consumos.reduce((acc, item) => acc + item.amount, 0);
-        consumptionHtml += `<ul class="consumption-list">`;
-        oc.consumos.forEach(item => {
-          const dateFormatted = formatDateBrazil(item.date);
-          consumptionHtml += `<li><strong>${dateFormatted}:</strong> ${item.amount} KG</li>`;
-        });
-        consumptionHtml += `</ul>`;
-        consumptionHtml += `<p><strong>Total:</strong> ${totalConsumedOC} KG</p>`;
-      } else {
-        consumptionHtml = `<p>0 KG</p>`;
-      }
-
-      // Priority + Status as badges
-      const priorityBadge = getPriorityBadge(oc.prioridade);
-      const statusBadge = getStatusBadge(oc.status);
-
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${oc.elemento}</td>
-        <td>${priorityBadge}</td>
-        <td>${oc.data}</td>
-        <td>${statusBadge}</td>
-        <td>${oc.valor}</td>
-        <td>${oc.arquivos || ""}</td>
-        <td>${oc.observacoes || ""}</td>
-        <td>${consumptionHtml}</td>
-        <td>
-          <button onclick="inserirConsumoOC(${idx})" title="Inserir Consumo"><i class="bi bi-plus-circle"></i></button>
-          <button onclick="editPO(${idx})" title="Editar"><i class="bi bi-pencil"></i></button>
-        </td>
-      `;
-      tableBody.appendChild(row);
-    });
-    openModal(modalVerificarOCs);
-  };
-
-  // Show PO Details
-  function showPODetails(index) {
-    const po = pos[index];
-    const detailContent = document.getElementById('poDetailContent');
-    const lic = licitacoes.find(l => l.id === po.licitacaoId);
-    let consumptionDetails = "";
-    if (po.consumos && po.consumos.length > 0) {
-      po.consumos.forEach(item => {
-        const dateFormatted = formatDateBrazil(item.date);
-        consumptionDetails += `<p>• ${dateFormatted}: ${item.amount} KG</p>`;
-      });
-    } else {
-      consumptionDetails = "<p>Nenhum consumo registrado.</p>";
-    }
-    detailContent.innerHTML = `
-      <div class="po-details">
-        <div class="po-info">
-          <p><strong>Elemento:</strong> ${po.elemento}</p>
-          <p><strong>Data:</strong> ${formatDateBrazil(po.data)}</p>
-          <p><strong>Valor:</strong> ${po.valor}</p>
-          <p><strong>Observação:</strong> ${po.observacoes || ""}</p>
-          <p><strong>Licitação:</strong> ${lic ? lic.itemSolicitado : ""}</p>
-        </div>
-        <div class="track-details">
-          <h4>Rastreio</h4>
-          <ul>
-            <li><strong>Criado em:</strong> ${formatDateBrazil(po.creationDate)}</li>
-            <li><strong>Virou OC em:</strong> ${formatDateBrazil(po.ocDate)}</li>
-            <li><strong>Aceite em:</strong> ${formatDateBrazil(po.acceptDate)}</li>
-          </ul>
-        </div>
-        <div class="consumption-details">
-          <h4>Consumos</h4>
-          ${consumptionDetails}
-        </div>
-      </div>
-    `;
-    openModal(modalPODetails);
-  }
-
-  // Archive PO
-  window.archivePO = async function(index) {
-    const po = pos[index];
-    if (!po) return;
-    if (!confirm(`Tem certeza de que deseja arquivar o PO "${po.elemento}"?`)) return;
-    po.status = 'Archived';
-    try {
-      await db.collection("pos").doc(po.docId).update(po);
-    } catch (error) {
-      console.error("Error archiving PO:", error);
-    }
-    renderPOBoard();
-  };
-
-  // Automatic PO Status Update (Alerts)
-  function updatePOStatuses() {
-    const now = new Date();
-    pos.forEach(po => {
-      if (po.status === "New") {
-        if (!po.hasOwnProperty('alertAcknowledgedNew')) po.alertAcknowledgedNew = false;
-        const creation = new Date(po.creationDate);
-        if ((now - creation) > (2 * 24 * 60 * 60 * 1000) && !po.alertAcknowledgedNew) {
-          po.alertReason = "Overdue to become OC";
-        } else {
-          po.alertReason = "";
-        }
-      } else if (po.status === "OC") {
-        if (!po.hasOwnProperty('alertAcknowledgedOC')) po.alertAcknowledgedOC = false;
-        if (po.ocDate) {
-          const oc = new Date(po.ocDate);
-          if ((now - oc) > (15 * 24 * 60 * 60 * 1000) && !po.alertAcknowledgedOC) {
-            po.alertReason = "Overdue acceptance";
-          } else {
-            po.alertReason = "";
-          }
-        }
-      } else {
-        po.alertReason = "";
-      }
-    });
-  }
-
-  window.confirmAlert = async function(index) {
-    const po = pos[index];
-    if (!po) return;
-    if (po.status === "New") {
-      po.alertAcknowledgedNew = true;
-    } else if (po.status === "OC") {
-      po.alertAcknowledgedOC = true;
-    }
-    po.alertReason = "";
-    try {
-      await db.collection("pos").doc(po.docId).update({
-        alertAcknowledgedNew: po.alertAcknowledgedNew,
-        alertAcknowledgedOC: po.alertAcknowledgedOC,
-        alertReason: ""
-      });
-    } catch (error) {
-      console.error("Error confirming alert:", error);
-    }
-    renderPOBoard();
-  };
-
-  // Render PO Board (Kanban)
-  function renderPOBoard() {
-    updatePOStatuses();
-    if (newPOsCol) newPOsCol.innerHTML = "";
-    if (ocPOsCol) ocPOsCol.innerHTML = "";
-    if (acceptedPOsCol) acceptedPOsCol.innerHTML = "";
-    if (alertPOsCol) alertPOsCol.innerHTML = "";
-    if (archivedPOsCol) archivedPOsCol.innerHTML = "";
-
-    const searchTerm = poSearch ? poSearch.value.toLowerCase() : "";
-    pos.forEach((po, index) => {
-      if (searchTerm && !po.elemento.toLowerCase().includes(searchTerm)) return;
-      const card = document.createElement('div');
-      card.className = "po-card";
-      card.innerHTML = `
-        <p class="po-number">${po.elemento}</p>
-        ${po.alertReason ? `<p class="alert-text">${po.alertReason} <button class="confirm-alert-btn" onclick="confirmAlert(${index})">Confirmar</button></p>` : ""}
-        <div class="po-actions">
-          ${ po.status === "New"
-              ? `<button onclick="convertToOC(${index})" title="Converter para OC"><i class="bi bi-arrow-right-circle"></i></button>`
-              : po.status === "OC"
-                ? `<button onclick="markAsAccepted(${index})" title="Aceitar"><i class="bi bi-check-circle"></i></button>`
-                : "" }
-          ${ po.status !== "Archived"
-              ? `<button onclick="archivePO(${index})" title="Arquivar"><i class="bi bi-archive"></i></button>`
-              : "" }
-          <button onclick="editPO(${index})" title="Editar"><i class="bi bi-pencil"></i></button>
-          <button onclick="deletePO(${index})" title="Excluir"><i class="bi bi-trash"></i></button>
-        </div>
-      `;
-      card.addEventListener('click', function(e) {
-        if (e.target.closest('.po-actions')) return;
-        showPODetails(index);
-      });
-      if (po.status === 'Archived') {
-        archivedPOsCol && archivedPOsCol.appendChild(card);
-      } else if (po.alertReason) {
-        alertPOsCol && alertPOsCol.appendChild(card);
-      } else if (po.status === "New") {
-        newPOsCol && newPOsCol.appendChild(card);
-      } else if (po.status === "OC") {
-        ocPOsCol && ocPOsCol.appendChild(card);
-      } else if (po.status === "Accepted") {
-        acceptedPOsCol && acceptedPOsCol.appendChild(card);
-      } else {
-        newPOsCol && newPOsCol.appendChild(card);
-      }
-    });
-  }
-
-  // Render Licitações (Cards) – Sorted alphabetically
-  function renderLicitacoes() {
-    if (licitacaoCards) licitacaoCards.innerHTML = "";
-    const searchTerm = licitacoesSearch ? licitacoesSearch.value.toLowerCase() : "";
-    let categoryFilter = 'all';
-    if (filterCategoryRadios) {
-      filterCategoryRadios.forEach(radio => {
-        if (radio.checked) categoryFilter = radio.value;
-      });
-    }
-    const sortedLicitacoes = licitacoes.slice().sort((a, b) => a.itemSolicitado.localeCompare(b.itemSolicitado));
-    sortedLicitacoes.forEach(lic => {
-      if (searchTerm && !lic.itemSolicitado.toLowerCase().includes(searchTerm)) return;
-      if (categoryFilter !== 'all' && lic.categoria !== categoryFilter) return;
-
-      const total = lic.totalQuantity || 0;
-      const used = lic.ocTotal || 0;
-      // Calculate remaining items = total - used
-      // Calculate remaining items = total - used
-      const remaining = total - used;
-
-      // leftoverRatio goes from 1 (no consumption) down to 0 (fully consumed)
-      const leftoverRatio = total > 0 ? (remaining / total) : 0;
-      const dashOffset = 57 * leftoverRatio;
-
-      // Color thresholds based on leftoverRatio
-      // leftoverRatio <= 0.3 => red (low leftover => high usage)
-      // leftoverRatio <= 0.7 => yellow (medium leftover)
-      // leftoverRatio > 0.7 => green (high leftover => low usage)
-      let gaugeColor;
-      if (leftoverRatio <= 0.3) {
-        gaugeColor = "#FF4500";    // red
-      } else if (leftoverRatio <= 0.7) {
-        gaugeColor = "#FFD700";    // yellow
-      } else {
-        gaugeColor = "#3CB371";    // green
-      }
-
-      let autonomia = "N/A";
-      if (lic.cmm && lic.cmm > 0) {
-        autonomia = (lic.balance / lic.cmm).toFixed(2);
-      }
-
-      let vencStyle = "";
-      if (isCloseToDue(lic.vencimentoAta)) {
-        vencStyle = 'style="color: red;"';
-      }
-
-      const truncatedTitle = `<span class="truncated-value" title="${lic.itemSolicitado}">${lic.itemSolicitado}</span>`;
-
-      const card = document.createElement("div");
-      card.className = "item-card fancy-card";
-      card.innerHTML = `
-        <h2>${truncatedTitle}</h2>
-        <div class="gauge-container">
-          <svg viewBox="0 0 36 18" class="semi-circle">
-            <!-- Gray background arc -->
-            <path
-              d="M2,18 A16,16 0 0 1 34,18"
-              stroke="#eee"
-              stroke-width="4"
-              fill="none"
-            />
-            <!-- Colored arc (fills left to right as leftoverRatio decreases) -->
-            <path
-              d="M2,18 A16,16 0 0 1 34,18"
-              stroke="${gaugeColor}"
-              stroke-dasharray="57"
-              stroke-dashoffset="${dashOffset}"
-              stroke-width="4"
-              fill="none"
-              stroke-linecap="round"
-            />
-          </svg>
-          <p>Restam ${remaining}KG de ${total}KG</p>
-        </div>
-        <p id="venc" ${vencStyle}>${formatDate(lic.vencimentoAta)}</p>
-        <div class="info-icons two-columns">
-          <div class="icon-with-label">
-            <span class="label">Disp. p/lib:</span>
-            <span class="value truncated-value" title="${lic.balance} KG">${lic.balance} KG</span>
-            <button class="edit-disp-button" onclick="editBalance(${lic.id})" title="Editar Disp. p/lib">
-              <i class="bi bi-pencil"></i>
-            </button>
-          </div>
-          <div class="icon-with-label">
-            <span class="label">CMM:</span>
-            <span class="value truncated-value" title="${lic.cmm}">${lic.cmm}</span>
-          </div>
-          <div class="icon-with-label">
-            <span class="label">Em OC:</span>
-            <span class="value truncated-value" title="${lic.ocTotal} KG">${lic.ocTotal} KG</span>
-          </div>
-          <div class="icon-with-label">
-            <span class="label">Autonomia:</span>
-            <span class="value truncated-value" title="${autonomia} meses">${autonomia} meses</span>
-          </div>
-        </div>
-        <button onclick="verificarOCs(${lic.id})" class="ocs-button">Verificar OCs</button>
-        <div class="card-actions">
-          <button class="comments-btn" onclick="openComentarios(${lic.id})" title="Comentários">
-            <i class="bi bi-chat-dots"></i>
-            ${lic.newCommentCount && lic.newCommentCount > 0 ? `<span class="new-comment-badge">${lic.newCommentCount}</span>` : ""}
-          </button>
-          <button onclick="editLicitacao(${lic.id})" title="Editar"><i class="bi bi-pencil"></i></button>
-          <button onclick="deleteLicitacao(${lic.id})" title="Excluir"><i class="bi bi-trash"></i></button>
-          <button onclick="showLicitacaoDetails(${lic.id})" title="Detalhes da Licitação"><i class="bi bi-info-circle"></i></button>
-        </div>
-      `;
-      licitacaoCards && licitacaoCards.appendChild(card);
-    });
-  }
-
-  // Render Chat (Comentários)
-  function renderChat(lic) {
-    if (!chatMessages) return;
-    chatMessages.innerHTML = "";
-    lic.comentarios.forEach((msg, idx) => {
-      const bubble = document.createElement('div');
-      bubble.className = "chat-bubble";
-      bubble.innerHTML = `
-        <p>${msg.text}</p>
-        <span class="chat-time">${formatTime(msg.time)}</span>
-        <button class="delete-comment-btn" onclick="deleteComment(${lic.id}, ${idx})" title="Excluir comentário">X</button>
-      `;
-      chatMessages.appendChild(bubble);
-    });
-  }
-  window.openComentarios = function(licId) {
-    const lic = licitacoes.find(l => l.id === licId);
-    if (!lic) return;
-    if (formComentarios.elements["licitacaoId"]) {
-      formComentarios.elements["licitacaoId"].value = licId;
-    }
-    renderChat(lic);
-    openModal(modalComentarios);
-  };
-  window.deleteComment = async function(licId, commentIndex) {
-    const lic = licitacoes.find(l => l.id === licId);
-    if (!lic) return;
-    if (!confirm("Tem certeza que deseja excluir este comentário?")) return;
-    lic.comentarios.splice(commentIndex, 1);
-    lic.newCommentCount = lic.comentarios.length;
-    try {
-      await db.collection("licitacoes").doc(lic.docId).update({
-        comentarios: lic.comentarios,
-        newCommentCount: lic.newCommentCount
-      });
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-    }
-    renderChat(lic);
-    renderLicitacoes();
-  };
-
-  // Form Submissions
+  // Form Submission: Nova Licitação
   if (formLicitacao) {
     formLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -898,10 +681,13 @@ document.addEventListener("DOMContentLoaded", async function() {
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
         totalQuantity: totalQty,
-        balance: 0,
+        balance: 0, // Manually added licitações do not update "Disp.p/lib"
         ocTotal: 0,
         ocConsumed: 0,
+        comprometido: 0,
+        ocs: [],
         comentarios: [],
+        newCommentCount: 0,
         categoria: fd.get('categoria'),
         cmm: parseFloat(fd.get('cmm')) || 0
       };
@@ -918,6 +704,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
+  // Form Submission: Edit Licitação
   if (formEditLicitacao) {
     formEditLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -946,178 +733,116 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  if (formPO) {
-    formPO.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const fd = new FormData(formPO);
-      const newPO = {
-        id: poIdCounter++,
-        elemento: fd.get('elemento'),
-        prioridade: fd.get('prioridade'),
-        data: fd.get('data'),
-        status: "New",
-        creationDate: new Date().toISOString(),
-        ocDate: null,
-        acceptDate: null,
-        alertReason: "",
-        valor: parseFloat(fd.get('valor')) || 0,
-        arquivos: fd.get('arquivos'),
-        observacoes: fd.get('observacoes'),
-        licitacaoId: parseInt(fd.get('licitacaoId')) || 0,
-        alertAcknowledgedNew: false,
-        alertAcknowledgedOC: false
-      };
-      try {
-        const docRef = await db.collection("pos").add(newPO);
-        newPO.docId = docRef.id;
-      } catch (error) {
-        console.error("Error adding PO:", error);
-      }
-      pos.push(newPO);
-      renderPOBoard();
-      formPO.reset();
-      closeModal(modalPO);
-    });
-  }
-
-  if (formEditPO) {
-    formEditPO.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const fd = new FormData(formEditPO);
-      const index = parseInt(fd.get('index'));
-      const oldPO = pos[index];
-      if (!oldPO) return;
-      const oldStatus = oldPO.status;
-      const oldLicitacaoId = oldPO.licitacaoId;
-      const oldValor = oldPO.valor;
-
-      oldPO.elemento = fd.get('elemento');
-      oldPO.prioridade = fd.get('prioridade');
-      oldPO.data = fd.get('data');
-      oldPO.status = fd.get('status');
-      oldPO.valor = parseFloat(fd.get('valor')) || 0;
-      oldPO.arquivos = fd.get('arquivos');
-      oldPO.observacoes = fd.get('observacoes');
-      oldPO.licitacaoId = parseInt(fd.get('licitacaoId')) || 0;
-
-      if (oldStatus === "OC") {
-        const oldLic = licitacoes.find(l => l.id === oldLicitacaoId);
-        if (oldLic) {
-          oldLic.ocTotal -= oldValor;
-          try {
-            await db.collection("licitacoes").doc(oldLic.docId).update({ ocTotal: oldLic.ocTotal });
-          } catch (error) {
-            console.error("Error updating old lic in PO edit:", error);
-          }
-        }
-      }
-      if (oldPO.status === "OC") {
-        oldPO.ocDate = new Date().toISOString();
-        const newLic = licitacoes.find(l => l.id === oldPO.licitacaoId);
-        if (newLic) {
-          newLic.ocTotal += oldPO.valor;
-          try {
-            await db.collection("licitacoes").doc(newLic.docId).update({ ocTotal: newLic.ocTotal });
-          } catch (error) {
-            console.error("Error updating new lic in PO edit:", error);
-          }
-        }
-      }
-      try {
-        await db.collection("pos").doc(oldPO.docId).update(oldPO);
-      } catch (error) {
-        console.error("Error updating PO:", error);
-      }
-      renderPOBoard();
-      formEditPO.reset();
-      closeModal(modalEditPO);
-      renderLicitacoes();
-    });
-  }
-
+  // Form Submission: Comentários (Chat)
   if (formComentarios) {
     formComentarios.addEventListener("submit", async function(e) {
       e.preventDefault();
-      const licId = parseInt(formComentarios.elements["licitacaoId"].value);
-      const lic = licitacoes.find(l => l.id === licId);
-      if (!lic) return;
+      const pi = formComentarios.elements["licitacaoId"].value.toUpperCase();
+      const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi);
+      if (group.length === 0) return;
       const newMsg = {
         text: formComentarios.elements["newMessage"].value,
         time: new Date()
       };
-      lic.comentarios.push(newMsg);
-      lic.newCommentCount = (lic.newCommentCount || 0) + 1;
-      try {
-        await db.collection("licitacoes").doc(lic.docId).update({
-          comentarios: lic.comentarios,
-          newCommentCount: lic.newCommentCount
-        });
-      } catch (error) {
-        console.error("Error updating comentarios:", error);
+      group.forEach(lic => {
+        lic.comentarios.push(newMsg);
+        lic.newCommentCount = (lic.newCommentCount || 0) + 1;
+      });
+      for (const lic of group) {
+        try {
+          await db.collection("licitacoes").doc(lic.docId).update({
+            comentarios: lic.comentarios,
+            newCommentCount: lic.newCommentCount
+          });
+        } catch (err) {
+          console.error("Erro ao atualizar comentarios:", err);
+        }
       }
       formComentarios.elements["newMessage"].value = "";
-      renderChat(lic);
+      closeModal(modalComentarios);
       renderLicitacoes();
-    });
-  }
-
-  if (licitacoesSearch) {
-    licitacoesSearch.addEventListener("input", renderLicitacoes);
-  }
-  if (poSearch) {
-    poSearch.addEventListener("input", renderPOBoard);
-  }
-  if (filterCategoryRadios) {
-    filterCategoryRadios.forEach(radio => {
-      radio.addEventListener('change', renderLicitacoes);
-    });
-  }
-  if (btnNewLicitacao) {
-    btnNewLicitacao.addEventListener('click', function() {
-      formLicitacao.reset();
-      openModal(modalLicitacao);
-    });
-  }
-  if (btnNewPO) {
-    btnNewPO.addEventListener('click', function() {
-      formPO.reset();
-      populateLicitacaoDropdown();
-      openModal(modalPO);
     });
   }
 
   // Load Data from Firestore
   async function loadData() {
     try {
+      licitacoes = [];
       const licSnapshot = await db.collection("licitacoes").get();
       licSnapshot.forEach(doc => {
         const licData = doc.data();
         licData.docId = doc.id;
         if (!licData.comentarios) licData.comentarios = [];
         licData.ocConsumed = licData.ocConsumed || 0;
+        licData.comprometido = licData.comprometido || 0;
+        licData.newCommentCount = licData.newCommentCount || 0;
         licitacoes.push(licData);
         if (licData.id >= licitacaoIdCounter) {
           licitacaoIdCounter = licData.id + 1;
         }
       });
-      const posSnapshot = await db.collection("pos").get();
-      posSnapshot.forEach(doc => {
-        const poData = doc.data();
-        poData.docId = doc.id;
-        pos.push(poData);
-        if (poData.id >= poIdCounter) {
-          poIdCounter = poData.id + 1;
-        }
-      });
       renderLicitacoes();
-      renderPOBoard();
     } catch (error) {
       console.error("Error loading data:", error);
     }
   }
   await loadData();
 
-  // Helper: Open/Close Modal
-  function openModal(modal) { modal.style.display = 'flex'; }
-  function closeModal(modal) { modal.style.display = 'none'; }
+  // Attach event listeners for search & category filter
+  if (licitacoesSearch) {
+    licitacoesSearch.addEventListener("input", renderLicitacoes);
+  }
+  if (filterCategoryRadios) {
+    filterCategoryRadios.forEach(radio => {
+      radio.addEventListener('change', renderLicitacoes);
+    });
+  }
+});
+
+// Profile Menu & Auth Logic
+const profileButton = document.getElementById('profileButton');
+const profileDropdown = document.getElementById('profileDropdown');
+const resetPasswordLink = document.getElementById('resetPasswordLink');
+const logoutLink = document.getElementById('logoutLink');
+
+profileButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
+});
+document.addEventListener('click', (e) => {
+  if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
+    profileDropdown.style.display = 'none';
+  }
+});
+resetPasswordLink.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    alert("Nenhum usuário logado. Faça login primeiro.");
+    return;
+  }
+  try {
+    await firebase.auth().sendPasswordResetEmail(user.email);
+    alert("Email de redefinição de senha enviado para: " + user.email);
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao enviar redefinição de senha: " + error.message);
+  }
+  profileDropdown.style.display = 'none';
+});
+logoutLink.addEventListener('click', async (e) => {
+  e.preventDefault();
+  try {
+    await firebase.auth().signOut();
+    window.location.href = "index.html";
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao fazer logout: " + error.message);
+  }
+  profileDropdown.style.display = 'none';
+});
+firebase.auth().onAuthStateChanged((user) => {
+  if (!user) {
+    window.location.href = "index.html";
+  }
 });
