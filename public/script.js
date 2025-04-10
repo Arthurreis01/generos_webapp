@@ -32,15 +32,16 @@ document.addEventListener("DOMContentLoaded", async function() {
     s = s.replace(/[^0-9.\-]/g, '');
     return parseFloat(s) || 0;
   }
+  
   function formatNumber(value) {
     return new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value);
   }
+  
   function formatDate(dateStr) {
     if (!dateStr) return '';
-    // If the string already contains "/", assume it's in Brazilian format.
     if (dateStr.indexOf("/") !== -1) return dateStr;
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -49,6 +50,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
   }
+  
   function formatTime(time) {
     const d = new Date(time);
     if (isNaN(d.getTime())) return '';
@@ -56,22 +58,25 @@ document.addEventListener("DOMContentLoaded", async function() {
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
   }
+  
   function removeExtraQuotes(str) {
     return str.replace(/"/g, '').trim();
   }
+  
   function showImportLoadingModal() {
     const modal = document.getElementById("importLoadingModal");
     if (modal) modal.style.display = 'flex';
   }
+  
   function hideImportLoadingModal() {
     const modal = document.getElementById("importLoadingModal");
     if (modal) modal.style.display = 'none';
   }
-
+  
   /* ---------- Data Arrays and Counters ---------- */
   let licitacoes = [];
   let licitacaoIdCounter = 1;
-
+  
   /* ---------- DOM Elements ---------- */
   const fab = document.querySelector('.fab');
   const fabMenu = document.getElementById('fabMenu');
@@ -79,7 +84,6 @@ document.addEventListener("DOMContentLoaded", async function() {
   const licitacaoCards = document.getElementById('licitacaoCards');
   const fileEstoqueInput = document.getElementById('fileEstoque');
   const btnImportEstoque = document.getElementById('btnImportEstoque');
-  // Removed global btnImportOC (now using per-card manual addition)
   const modalLicitacao = document.getElementById('modalLicitacao');
   const modalEditLicitacao = document.getElementById('modalEditLicitacao');
   const modalComentarios = document.getElementById('modalComentarios');
@@ -90,48 +94,53 @@ document.addEventListener("DOMContentLoaded", async function() {
   const chatMessages = document.getElementById('chatMessages');
   const licitacoesSearch = document.getElementById('licitacoesSearch');
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
-
-  // NEW: Modal for Manual OC Addition (must exist in HTML with id "modalNovaOC")
+  
+  // Modal for Manual OC Addition
   const modalNovaOC = document.getElementById("modalNovaOC");
   const formNovaOC = document.getElementById("formNovaOC");
-  let newOC_pi = null;  // For storing the current licitação PI for new OC addition
-
+  let newOC_pi = null;
+  
   /* ---------- Modal Show/Close Functions ---------- */
   function openModal(modal) {
     if (modal) modal.style.display = 'flex';
   }
+  
   function closeModal(modal) {
     if (modal) modal.style.display = 'none';
   }
+  
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeModal(overlay);
     });
   });
+  
   document.querySelectorAll('.closeModal').forEach(btn => {
     btn.addEventListener('click', function() {
       const modalId = btn.getAttribute('data-modal');
       closeModal(document.getElementById(modalId));
     });
   });
-
+  
   /* ---------- FAB Menu ---------- */
   fab.addEventListener('click', function(e) {
     e.stopPropagation();
     fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
   });
+  
   document.addEventListener('click', function(e) {
     if (!fabMenu.contains(e.target) && e.target !== fab) {
       fabMenu.style.display = 'none';
     }
   });
+  
   if (btnNewLicitacao) {
     btnNewLicitacao.addEventListener('click', function() {
       if (formLicitacao) formLicitacao.reset();
       openModal(modalLicitacao);
     });
   }
-
+  
   /* ---------- CSV Export ---------- */
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
@@ -148,6 +157,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     a.click();
     document.body.removeChild(a);
   }
+  
   if (document.getElementById("exportLicitacoesBtn")) {
     document.getElementById("exportLicitacoesBtn").addEventListener("click", function() {
       const headers = [
@@ -158,12 +168,13 @@ document.addEventListener("DOMContentLoaded", async function() {
       exportDataToCSV(licitacoes, headers, "licitacoes.xls");
     });
   }
-
-  /* ---------- Import Estoque (existing) ---------- */
+  
+  /* ---------- Import Estoque ---------- */
   if (btnImportEstoque && fileEstoqueInput) {
     btnImportEstoque.addEventListener('click', function() {
       fileEstoqueInput.click();
     });
+  
     fileEstoqueInput.addEventListener('change', async function() {
       const file = fileEstoqueInput.files[0];
       if (!file) return;
@@ -184,22 +195,26 @@ document.addEventListener("DOMContentLoaded", async function() {
           hideImportLoadingModal();
           return;
         }
+  
         const lines = text.split(/\r?\n/);
         const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
         const piIndex = headers.indexOf("PI");
         const dispIndex = headers.indexOf("QTDE_DISPONIVEL");
         const compIndex = headers.indexOf("QTDE_COMPROMETIDA");
+  
         if (piIndex < 0 || dispIndex < 0 || compIndex < 0) {
           alert("Colunas PI, QTDE_DISPONIVEL ou QTDE_COMPROMETIDA não encontradas.");
           hideImportLoadingModal();
           return;
         }
+  
         for (let i = 1; i < lines.length; i++) {
           const row = lines[i].split(",");
           if (row.length < headers.length) continue;
           const pi = removeExtraQuotes(row[piIndex]).toUpperCase();
           const dispVal = parseNumber(removeExtraQuotes(row[dispIndex]));
           const compVal = parseNumber(removeExtraQuotes(row[compIndex]));
+  
           const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi);
           if (matchingLics.length > 0) {
             for (let lic of matchingLics) {
@@ -216,6 +231,7 @@ document.addEventListener("DOMContentLoaded", async function() {
             }
           }
         }
+  
         renderLicitacoes();
         alert("Planilha de Estoque importada e valores atualizados com sucesso!");
       } catch (error) {
@@ -227,58 +243,74 @@ document.addEventListener("DOMContentLoaded", async function() {
       }
     });
   }
-
+  
   /* ---------- Manual OC Addition Per Card ---------- */
-  window.openNovaOCModal = function(pi) {
+  // Now accepts both PI and itemSolicitado.
+  window.openNovaOCModal = function(pi, itemSolicitado) {
     newOC_pi = pi;
-    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    // Find the licitation matching both the PI and the item
+    const lic = licitacoes.find(l =>
+      l.pi && l.pi.toUpperCase() === pi.toUpperCase() &&
+      l.itemSolicitado === itemSolicitado
+    );
     if (!lic) {
       alert("Licitação não encontrada!");
       return;
     }
-    // Make the Licitação Number field read-only (or editable, based on your needs)
-    document.getElementById("novaOC_numLic").setAttribute("readonly", "true");
-    document.getElementById("novaOC_numLic").value = lic.numeroProcesso || lic.pi;
+    // Set the Licitation Number field to be editable and assign the corresponding licitation number
+    const numLicInput = document.getElementById("novaOC_numLic");
+    numLicInput.removeAttribute("readonly");
+    numLicInput.value = lic.numeroProcesso || lic.pi;
     document.getElementById("novaOC_ocNumber").value = "";
     document.getElementById("novaOC_balance").value = "";
     document.getElementById("novaOC_companyName").value = "";
+    // Set the hidden itemSolicitado field
+    document.getElementById("novaOC_itemSolicitado").value = lic.itemSolicitado;
     modalNovaOC.style.display = "flex";
   };
-
+  
   if (formNovaOC) {
     formNovaOC.addEventListener("submit", async function(e) {
       e.preventDefault();
       saveNovaOC();
     });
   }
-
+  
   async function saveNovaOC() {
     const ocNumber = document.getElementById("novaOC_ocNumber").value.trim();
     const ocBalance = parseFloat(document.getElementById("novaOC_balance").value);
     const companyName = document.getElementById("novaOC_companyName").value.trim();
-    if (!ocNumber || isNaN(ocBalance) || !companyName) {
+    const licitationNumber = document.getElementById("novaOC_numLic").value.trim();
+    const itemSolicitado = document.getElementById("novaOC_itemSolicitado").value.trim();
+  
+    if (!ocNumber || isNaN(ocBalance) || !companyName || !licitationNumber || !itemSolicitado) {
       alert("Preencha todos os campos obrigatórios.");
       return;
     }
-    const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === newOC_pi);
+  
+    // Match licitations only for the specific licitation number and item
+    const matchingLics = licitacoes.filter(l =>
+      l.numeroProcesso === licitationNumber && l.itemSolicitado === itemSolicitado
+    );
     if (matchingLics.length === 0) {
-      alert("Licitação não encontrada para atualização.");
+      alert("Licitação ou item não encontrados para atualização.");
       return;
     }
+  
     for (const lic of matchingLics) {
       if (!lic.ocs) lic.ocs = [];
       const newOC = {
         codigo: ocNumber,
         qtdeComprada: ocBalance,
-        // Update ocConsumed immediately upon creation:
         qtdeArrecadada: ocBalance,
         qtdePericia: 0,
-        numeroProcesso: lic.numeroProcesso || lic.pi
+        numeroProcesso: licitationNumber,
+        itemSolicitado: itemSolicitado
       };
       lic.ocs.push(newOC);
-      // Update the available balance and "Em OC:" (ocConsumed)
       lic.balance = Math.max(0, (lic.balance || 0) - ocBalance);
       lic.ocConsumed = (lic.ocConsumed || 0) + ocBalance;
+  
       try {
         await db.collection("licitacoes").doc(lic.docId).update({
           ocs: lic.ocs,
@@ -292,7 +324,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     modalNovaOC.style.display = "none";
     renderLicitacoes();
   }
-
+  
   /* ---------- Group Licitações by PI ---------- */
   function groupByItem(licitacoes) {
     const map = {};
@@ -326,7 +358,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
     return Object.values(map);
   }
-
+  
   /* ---------- Render Licitação Cards ---------- */
   function renderLicitacoes() {
     if (!licitacaoCards) return;
@@ -334,7 +366,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     licitacaoCards.style.display = "flex";
     licitacaoCards.style.flexWrap = "wrap";
     licitacaoCards.style.justifyContent = "flex-start";
-
+  
     let items = groupByItem(licitacoes);
     const searchTerm = licitacoesSearch ? licitacoesSearch.value.toLowerCase() : "";
     if (searchTerm) {
@@ -351,7 +383,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       items = items.filter(item => (item.categoria || "").toLowerCase() === categoryFilter.toLowerCase());
     }
     items.sort((a, b) => (a.itemSolicitado || "").localeCompare(b.itemSolicitado || ""));
-
+  
     items.forEach((item, groupIdx) => {
       const total = item.totalQuantity;
       const used = item.ocConsumed;
@@ -415,7 +447,8 @@ document.addEventListener("DOMContentLoaded", async function() {
           <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
             <i class="bi bi-bar-chart"></i>
           </button>
-          <button onclick="openNovaOCModal('${item.pi}')" title="Adicionar OC Manual">
+          <!-- Pass both PI and itemSolicitado to openNovaOCModal -->
+          <button onclick="openNovaOCModal('${item.pi}', '${item.itemSolicitado}')" title="Adicionar OC Manual">
             <i class="bi bi-plus-square"></i>
           </button>
           <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Adicionar nova licitação para este PI">
@@ -432,7 +465,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       licitacaoCards.appendChild(card);
     });
   }
-
+  
   /* ---------- Toggle Detail ---------- */
   window.toggleLicDetail = function(elemId, event) {
     if (event) event.stopPropagation();
@@ -440,7 +473,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (!elem) return;
     elem.style.display = (elem.style.display === 'none') ? 'block' : 'none';
   };
-
+  
   /* ---------- Single Licitação Edit/Delete ---------- */
   window.editSingleLicitacao = function(licId) {
     if (!confirm("Deseja editar esta licitação?")) return;
@@ -460,7 +493,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
     openModal(modalEditLicitacao);
   };
-
+  
   window.deleteSingleLicitacao = async function(licId) {
     if (!confirm("Tem certeza que deseja excluir APENAS esta licitação?")) return;
     const lic = licitacoes.find(l => l.id === licId);
@@ -473,7 +506,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       console.error("Error deleting single licitacao:", err);
     }
   };
-
+  
   /* ---------- Licitação Edit/Delete Group ---------- */
   window.editItemByPI = function(pi) {
     const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
@@ -492,7 +525,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
     openModal(modalEditLicitacao);
   };
-
+  
   window.deleteItemByPI = async function(pi) {
     if (!confirm("Tem certeza que deseja excluir TODAS as licitações deste PI?")) return;
     const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
@@ -506,7 +539,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
     renderLicitacoes();
   };
-
+  
   window.addNewLicitacaoForPI = function(pi) {
     if (formLicitacao) {
       formLicitacao.reset();
@@ -521,7 +554,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       openModal(modalLicitacao);
     }
   };
-
+  
   /* ---------- Form Submission: Nova Licitação ---------- */
   if (formLicitacao) {
     formLicitacao.addEventListener('submit', async function(e) {
@@ -560,7 +593,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       closeModal(modalLicitacao);
     });
   }
-
+  
   /* ---------- Form Submission: Edit Licitação ---------- */
   if (formEditLicitacao) {
     formEditLicitacao.addEventListener('submit', async function(e) {
@@ -589,7 +622,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       closeModal(modalEditLicitacao);
     });
   }
-
+  
   /* ---------- Form Submission: Comentários (Chat) ---------- */
   if (formComentarios) {
     formComentarios.addEventListener("submit", async function(e) {
@@ -620,7 +653,7 @@ document.addEventListener("DOMContentLoaded", async function() {
       renderLicitacoes();
     });
   }
-
+  
   /* ---------- Load Data from Firestore ---------- */
   async function loadData() {
     try {
@@ -644,7 +677,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   }
   await loadData();
-
+  
   if (licitacoesSearch) {
     licitacoesSearch.addEventListener("input", renderLicitacoes);
   }
@@ -674,6 +707,7 @@ function editSingleLicitacao(licId) {
   formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
   openModal(modalEditLicitacao);
 }
+
 function deleteSingleLicitacao(licId) {
   if (!confirm("Tem certeza que deseja excluir APENAS esta licitação?")) return;
   const lic = licitacoes.find(l => l.id === licId);
@@ -706,7 +740,7 @@ window.openComentariosByItem = function(pi) {
   }
   openModal(modalComentarios);
 };
-
+  
 window.deleteChatMessage = async function(pi, index) {
   const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (!group || group.length === 0) return;
@@ -729,7 +763,7 @@ window.deleteChatMessage = async function(pi, index) {
   renderLicitacoes();
   window.openComentariosByItem(pi);
 };
-
+  
 /* ---------- OC Dashboard ---------- */
 window.verificarOCsByItem = function(pi) {
   const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
@@ -792,7 +826,7 @@ window.verificarOCsByItem = function(pi) {
   });
   openModal(modalVerificarOCs);
 };
-
+  
 window.deleteOC = async function(pi, codigo) {
   const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (matchingLics.length === 0) return;
@@ -815,7 +849,7 @@ window.deleteOC = async function(pi, codigo) {
   renderLicitacoes();
   verificarOCsByItem(pi);
 };
-
+  
 /* ---------- Profile Menu & Auth Logic ---------- */
 const profileButton = document.getElementById('profileButton');
 const profileDropdown = document.getElementById('profileDropdown');
@@ -826,11 +860,13 @@ profileButton.addEventListener('click', (e) => {
   e.stopPropagation();
   profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
 });
+  
 document.addEventListener('click', (e) => {
   if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
     profileDropdown.style.display = 'none';
   }
 });
+  
 resetPasswordLink.addEventListener('click', async (e) => {
   e.preventDefault();
   const user = firebase.auth().currentUser;
@@ -847,6 +883,7 @@ resetPasswordLink.addEventListener('click', async (e) => {
   }
   profileDropdown.style.display = 'none';
 });
+  
 logoutLink.addEventListener('click', async (e) => {
   e.preventDefault();
   try {
@@ -858,6 +895,7 @@ logoutLink.addEventListener('click', async (e) => {
   }
   profileDropdown.style.display = 'none';
 });
+  
 firebase.auth().onAuthStateChanged((user) => {
   if (!user) {
     window.location.href = "index.html";
