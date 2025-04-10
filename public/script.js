@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
   const db = firebase.firestore();
 
-  // Helper Functions
+  /* ---------- Helper Functions ---------- */
   function parseNumber(str) {
     if (!str) return 0;
     let s = str.trim().replace(/\s+/g, '');
@@ -40,6 +40,8 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
   function formatDate(dateStr) {
     if (!dateStr) return '';
+    // If the string already contains "/", assume it's in Brazilian format.
+    if (dateStr.indexOf("/") !== -1) return dateStr;
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
     const day = String(d.getDate()).padStart(2, '0');
@@ -54,6 +56,10 @@ document.addEventListener("DOMContentLoaded", async function() {
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${hh}:${mm}`;
   }
+  // Remove all extra double quotes for CSV cells
+  function removeExtraQuotes(str) {
+    return str.replace(/"/g, '').trim();
+  }
   function showImportLoadingModal() {
     const modal = document.getElementById("importLoadingModal");
     if (modal) modal.style.display = 'flex';
@@ -63,19 +69,18 @@ document.addEventListener("DOMContentLoaded", async function() {
     if (modal) modal.style.display = 'none';
   }
 
-  // Data Arrays and Counters
+  /* ---------- Data Arrays and Counters ---------- */
   let licitacoes = [];
   let licitacaoIdCounter = 1;
 
-  // DOM Elements
+  /* ---------- DOM Elements ---------- */
   const fab = document.querySelector('.fab');
   const fabMenu = document.getElementById('fabMenu');
   const btnNewLicitacao = document.getElementById('btnNewLicitacao');
   const licitacaoCards = document.getElementById('licitacaoCards');
   const fileEstoqueInput = document.getElementById('fileEstoque');
   const btnImportEstoque = document.getElementById('btnImportEstoque');
-  const fileOCInput = document.getElementById('fileOC');
-  const btnImportOC = document.getElementById('btnImportOC');
+  // Global Import OC button removed—manual OC addition is per card.
   const modalLicitacao = document.getElementById('modalLicitacao');
   const modalEditLicitacao = document.getElementById('modalEditLicitacao');
   const modalComentarios = document.getElementById('modalComentarios');
@@ -87,7 +92,12 @@ document.addEventListener("DOMContentLoaded", async function() {
   const licitacoesSearch = document.getElementById('licitacoesSearch');
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
 
-  // Modal Show/Close functions
+  // NEW: Modal for manual OC addition (must be in HTML with id "modalNovaOC")
+  const modalNovaOC = document.getElementById("modalNovaOC");
+  const formNovaOC = document.getElementById("formNovaOC");
+  let newOC_pi = null;  // Global variable to store the current PI for new OC addition
+
+  /* ---------- Modal Show/Close Functions ---------- */
   function openModal(modal) {
     if (modal) modal.style.display = 'flex';
   }
@@ -106,7 +116,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   });
 
-  // FAB Menu Toggle
+  /* ---------- FAB Menu ---------- */
   fab.addEventListener('click', function(e) {
     e.stopPropagation();
     fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
@@ -123,7 +133,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // CSV Export
+  /* ---------- CSV Export ---------- */
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
     data.forEach(item => {
@@ -150,7 +160,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // Import Estoque (Update ALL licitações with matching PI)
+  /* ---------- Import Estoque (existing) ---------- */
   if (btnImportEstoque && fileEstoqueInput) {
     btnImportEstoque.addEventListener('click', function() {
       fileEstoqueInput.click();
@@ -176,7 +186,7 @@ document.addEventListener("DOMContentLoaded", async function() {
           return;
         }
         const lines = text.split(/\r?\n/);
-        const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
+        const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
         const piIndex = headers.indexOf("PI");
         const dispIndex = headers.indexOf("QTDE_DISPONIVEL");
         const compIndex = headers.indexOf("QTDE_COMPROMETIDA");
@@ -188,10 +198,9 @@ document.addEventListener("DOMContentLoaded", async function() {
         for (let i = 1; i < lines.length; i++) {
           const row = lines[i].split(",");
           if (row.length < headers.length) continue;
-          const pi = row[piIndex].trim().toUpperCase();
-          const dispVal = parseNumber(row[dispIndex].trim());
-          const compVal = parseNumber(row[compIndex].trim());
-          // Update all licitações with matching PI
+          const pi = removeExtraQuotes(row[piIndex]).toUpperCase();
+          const dispVal = parseNumber(removeExtraQuotes(row[dispIndex]));
+          const compVal = parseNumber(removeExtraQuotes(row[compIndex]));
           const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi);
           if (matchingLics.length > 0) {
             for (let lic of matchingLics) {
@@ -220,122 +229,60 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // Import OC (imports or updates OCs as before)
-  if (btnImportOC && fileOCInput) {
-    btnImportOC.addEventListener('click', function() {
-      fileOCInput.click();
-    });
-    fileOCInput.addEventListener('change', async function() {
-      const file = fileOCInput.files[0];
-      if (!file) return;
-      showImportLoadingModal();
+  /* ---------- NEW: Manual OC Addition Per Card ---------- */
+  window.openNovaOCModal = function(pi) {
+    newOC_pi = pi;
+    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (!lic) {
+      alert("Licitação não encontrada!");
+      return;
+    }
+    document.getElementById("novaOC_numLic").value = lic.numeroProcesso || lic.pi;
+    document.getElementById("novaOC_ocNumber").value = "";
+    document.getElementById("novaOC_balance").value = "";
+    document.getElementById("novaOC_companyName").value = "";
+    modalNovaOC.style.display = "flex";
+  };
+
+  function saveNovaOC() {
+    const ocNumber = document.getElementById("novaOC_ocNumber").value.trim();
+    const ocBalance = parseFloat(document.getElementById("novaOC_balance").value);
+    const companyName = document.getElementById("novaOC_companyName").value.trim();
+    if (!ocNumber || isNaN(ocBalance) || !companyName) {
+      alert("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === newOC_pi);
+    if (matchingLics.length === 0) {
+      alert("Licitação não encontrada para atualização.");
+      return;
+    }
+    matchingLics.forEach(async lic => {
+      if (!lic.ocs) lic.ocs = [];
+      const newOC = {
+        codigo: ocNumber,
+        qtdeComprada: ocBalance,
+        qtdeArrecadada: 0,
+        qtdePericia: 0,
+        numeroProcesso: lic.numeroProcesso || lic.pi
+      };
+      lic.ocs.push(newOC);
+      // Subtract new OC balance from available balance
+      lic.balance = Math.max(0, (lic.balance || 0) - ocBalance);
       try {
-        const ext = file.name.split('.').pop().toLowerCase();
-        let text = "";
-        if (ext === "csv") {
-          text = await file.text();
-        } else if (ext === "xls" || ext === "xlsx") {
-          const data = await file.arrayBuffer();
-          const workbook = XLSX.read(data, { type: "array" });
-          const firstSheet = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheet];
-          text = XLSX.utils.sheet_to_csv(worksheet);
-        } else {
-          alert("Formato de arquivo não suportado. Use CSV ou Excel (xls/xlsx).");
-          hideImportLoadingModal();
-          return;
-        }
-        const lines = text.split(/\r?\n/);
-        const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
-        const piIndex = headers.indexOf("PI");
-        const codIndex = headers.indexOf("CODIGO");
-        const qtdeCompIndex = headers.indexOf("QTDE_COMPRADA");
-        const qtdeArrIndex = headers.indexOf("QTDE_ARRECADADA");
-        const qtdePericiaIndex = headers.indexOf("QTDE_PERICIA_ESTOCAGEM");
-        const procIndex = headers.indexOf("NUMERO_PROCESSO");
-        if (piIndex < 0 || codIndex < 0 || qtdeCompIndex < 0 ||
-            qtdeArrIndex < 0 || qtdePericiaIndex < 0 || procIndex < 0) {
-          alert("Uma ou mais colunas (PI, CODIGO, QTDE_COMPRADA, QTDE_ARRECADADA, QTDE_PERICIA_ESTOCAGEM, NUMERO_PROCESSO) não foram encontradas.");
-          hideImportLoadingModal();
-          return;
-        }
-        let errorMessages = [];
-        for (let i = 1; i < lines.length; i++) {
-          const row = lines[i].split(",");
-          if (row.length < headers.length) continue;
-          const pi = row[piIndex].trim().toUpperCase();
-          const codigo = row[codIndex].trim();
-          const qtdeComp = parseNumber(row[qtdeCompIndex].trim());
-          const qtdeArr = parseNumber(row[qtdeArrIndex].trim());
-          const qtdePericia = parseNumber(row[qtdePericiaIndex].trim());
-          const numProc = row[procIndex].trim();
-          const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi);
-          if (!lic) {
-            errorMessages.push(`PI ${pi} não encontrado. Linha ${i+1}`);
-            continue;
-          }
-          if (!lic.ocs) lic.ocs = [];
-          const existingOC = lic.ocs.find(oc => oc.codigo === codigo);
-          if (existingOC) {
-            existingOC.qtdeComprada = qtdeComp;
-            existingOC.qtdeArrecadada = qtdeArr;
-            existingOC.qtdePericia = qtdePericia;
-            // Update Número do Processo from the spreadsheet
-            existingOC.numeroProcesso = numProc;
-          } else {
-            lic.ocs.push({
-              codigo,
-              qtdeComprada: qtdeComp,
-              qtdeArrecadada: qtdeArr,
-              qtdePericia,
-              numeroProcesso: numProc
-            });
-          }
-        }
-        // Recalculate totals for OC-related fields (do not update balance)
-        licitacoes.forEach(lic => {
-          if (lic.ocs && lic.ocs.length > 0) {
-            lic.ocTotal = lic.ocs.reduce((acc, oc) => acc + oc.qtdeComprada, 0);
-            lic.ocConsumed = lic.ocs.reduce((acc, oc) => acc + oc.qtdeArrecadada, 0);
-          }
+        await db.collection("licitacoes").doc(lic.docId).update({
+          ocs: lic.ocs,
+          balance: lic.balance
         });
-        // Update Firestore for each licitação that has OCs (do not update balance)
-        for (const lic of licitacoes) {
-          if (lic.ocs) {
-            try {
-              await db.collection("licitacoes").doc(lic.docId).update({
-                ocTotal: lic.ocTotal,
-                ocConsumed: lic.ocConsumed,
-                ocs: lic.ocs
-              });
-            } catch (err) {
-              console.error("Erro ao atualizar Firestore (OC):", err);
-              errorMessages.push(`Erro ao atualizar PI ${lic.pi}`);
-            }
-          }
-        }
-        renderLicitacoes();
-        if (errorMessages.length > 0) {
-          alert("Alguns itens não foram importados:\n" + errorMessages.join("\n"));
-        } else {
-          alert("Planilha de OC importada com sucesso!");
-        }
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao importar OC: " + error.message);
-      } finally {
-        hideImportLoadingModal();
-        fileOCInput.value = "";
-        const lastUpdateElem = document.getElementById("lastUpdateInfo");
-        if (lastUpdateElem) {
-          const now = new Date();
-          lastUpdateElem.textContent = "Última atualização: " + now.toLocaleString();
-        }
+      } catch (err) {
+        console.error("Erro ao atualizar licitação com novo OC:", err);
       }
     });
+    renderLicitacoes();
+    modalNovaOC.style.display = "none";
   }
 
-  // Group licitações by PI
+  /* ---------- Group Licitações by PI ---------- */
   function groupByItem(licitacoes) {
     const map = {};
     licitacoes.forEach(lic => {
@@ -353,31 +300,26 @@ document.addEventListener("DOMContentLoaded", async function() {
           comprometido: lic.comprometido || 0,
           licitations: [lic],
           comentarios: lic.comentarios || [],
-          newCommentCount: lic.newCommentCount || 0  // take the value from the first licitação
+          newCommentCount: lic.newCommentCount || 0
         };
       } else {
-        // Aggregate additive values
         map[piKey].totalQuantity += lic.totalQuantity || 0;
         map[piKey].ocConsumed += lic.ocConsumed || 0;
         map[piKey].ocTotal += lic.ocTotal || 0;
-        // For the imported fields, override with the new value
         map[piKey].balance = lic.balance || 0;
         map[piKey].comprometido = lic.comprometido || 0;
-        // Instead of summing newCommentCount, take the highest count
         map[piKey].newCommentCount = Math.max(map[piKey].newCommentCount, lic.newCommentCount || 0);
-        // Concatenate comments and add this licitação to the group
         map[piKey].comentarios = map[piKey].comentarios.concat(lic.comentarios || []);
         map[piKey].licitations.push(lic);
       }
     });
     return Object.values(map);
-  }  
+  }
 
-  // Render item cards
+  /* ---------- Rendering Licitação Cards ---------- */
   function renderLicitacoes() {
     if (!licitacaoCards) return;
     licitacaoCards.innerHTML = "";
-    // Flex layout to start cards from left to right
     licitacaoCards.style.display = "flex";
     licitacaoCards.style.flexWrap = "wrap";
     licitacaoCards.style.justifyContent = "flex-start";
@@ -398,37 +340,39 @@ document.addEventListener("DOMContentLoaded", async function() {
       items = items.filter(item => (item.categoria || "").toLowerCase() === categoryFilter.toLowerCase());
     }
     items.sort((a, b) => (a.itemSolicitado || "").localeCompare(b.itemSolicitado || ""));
-    items.forEach(item => {
+    items.forEach((item, groupIdx) => {
       const total = item.totalQuantity;
       const used = item.ocConsumed;
       const remaining = total - used;
+      
+      // Build usage details with toggleable "Restam" info
       let usageHTML = "";
       if (item.licitations && item.licitations.length > 0) {
-        usageHTML = item.licitations.map(lic => {
+        usageHTML = item.licitations.map((lic, licIndex) => {
           const usedLic = lic.ocConsumed || 0;
           const totalLic = lic.totalQuantity || 0;
           const percent = totalLic > 0 ? Math.round((usedLic / totalLic) * 100) : 0;
           let colorClass = "usage-green";
           if (percent >= 80) colorClass = "usage-red";
           else if (percent >= 50) colorClass = "usage-orange";
+          // Build hidden detail with "Restam" info and include edit and delete buttons
+          const restamInfoId = `restamInfo_${groupIdx}_${licIndex}`;
           return `
-            <div class="usage-row ${colorClass}">
+            <div class="usage-row ${colorClass}" onclick="toggleLicDetail('${restamInfoId}', event)">
               <span>${percent}% used</span>
               <span>Licitação ${lic.numeroProcesso}</span>
               <span>${formatDate(lic.vencimentoAta)}</span>
             </div>
+            <div id="${restamInfoId}" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
+              Restam ${formatNumber(totalLic - usedLic)}KG de ${formatNumber(totalLic)}KG<br>
+              <button class="edit-lic-btn" onclick="event.stopPropagation(); editLicDetail('${lic.pi}');">Editar Licitação</button>
+              <button class="delete-lic-btn" onclick="event.stopPropagation(); deleteLicDetail('${lic.pi}');">Excluir Licitação</button>
+            </div>
           `;
         }).join("");
       }
-      let autonomia = "N/A";
-      if (item.cmm > 0) {
-        autonomia = item.balance / item.cmm;
-      }
-      const dispPlusComp = item.balance + item.comprometido;
-      let autCob = "N/A";
-      if (item.cmm > 0) {
-        autCob = dispPlusComp / item.cmm;
-      }
+
+      // Note: The "Restam ..." info at the very beginning of the card is removed.
       const card = document.createElement("div");
       card.className = "item-card fancy-card";
       card.style.margin = "10px";
@@ -437,19 +381,16 @@ document.addEventListener("DOMContentLoaded", async function() {
       card.style.width = "300px";
       card.innerHTML = `
         <h2 class="item-name">${item.itemSolicitado || ""}</h2>
-        <p style="margin-bottom: 0.75rem;">
-          Restam <strong>${formatNumber(remaining)}KG</strong> de <strong>${formatNumber(total)}KG</strong>
-        </p>
         <div class="lic-usage-list">
           ${usageHTML}
         </div>
         <div class="item-stats">
-          <p><strong>Autonomia:</strong> <span>${formatNumber(autonomia)} meses</span></p>
+          <p><strong>Autonomia:</strong> <span>${formatNumber(item.balance / item.cmm || 0)} meses</span></p>
           <p><strong>CMM:</strong> <span>${formatNumber(item.cmm)}</span></p>
           <p><strong>Disp. p/lib:</strong> <span>${formatNumber(item.balance)} KG</span></p>
           <p><strong>Comprometido:</strong> <span>${formatNumber(item.comprometido)} KG</span></p>
-          <p><strong>Disp. + comp.:</strong> <span>${formatNumber(dispPlusComp)} KG</span></p>
-          <p><strong>Aut. c/ cob.:</strong> <span>${formatNumber(autCob)} meses</span></p>
+          <p><strong>Disp. + comp.:</strong> <span>${formatNumber(item.balance + item.comprometido)} KG</span></p>
+          <p><strong>Aut. c/ cob.:</strong> <span>${formatNumber((item.balance + item.comprometido) / item.cmm || 0)} meses</span></p>
           <p><strong>Em OC:</strong> <span>${formatNumber(item.ocConsumed)} KG</span></p>
         </div>
         <div class="card-actions">
@@ -460,13 +401,17 @@ document.addEventListener("DOMContentLoaded", async function() {
           <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
             <i class="bi bi-bar-chart"></i>
           </button>
+          <!-- New Manual OC Addition Button -->
+          <button onclick="openNovaOCModal('${item.pi}')" title="Adicionar OC Manual">
+            <i class="bi bi-plus-square"></i>
+          </button>
           <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Adicionar nova licitação para este PI">
             <i class="bi bi-plus"></i>
           </button>
-          <button onclick="editItemByPI('${item.pi}')" title="Editar">
+          <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
             <i class="bi bi-pencil"></i>
           </button>
-          <button onclick="deleteItemByPI('${item.pi}')" title="Excluir">
+          <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitação">
             <i class="bi bi-trash"></i>
           </button>
         </div>
@@ -475,65 +420,60 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // Chat for licitações by PI
- // Open chat for a given PI
-window.openComentariosByItem = function(pi) {
-  // Instead of merging duplicate comments from each licitação,
-  // we simply use the comments array from the first licitação found
-  const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
-  if (!lic) return;
-  
-  chatMessages.innerHTML = "";
-  (lic.comentarios || []).forEach((msg, index) => {
-    const bubble = document.createElement('div');
-    bubble.className = "chat-bubble";
-    bubble.innerHTML = `
-      <p>${msg.text}</p>
-      <span class="chat-time">${formatTime(msg.time)}</span>
-      <button onclick="deleteChatMessage('${pi}', ${index})">Delete</button>
-    `;
-    chatMessages.appendChild(bubble);
-  });
-  
-  if (formComentarios.elements["licitacaoId"]) {
-    formComentarios.elements["licitacaoId"].value = pi;
-  }
-  openModal(modalComentarios);
-};
+  /* ---------- Toggle Detail ---------- */
+  window.toggleLicDetail = function(elemId, event) {
+    // Prevent the click from triggering card-level events
+    if (event) event.stopPropagation();
+    const elem = document.getElementById(elemId);
+    if (!elem) return;
+    elem.style.display = (elem.style.display === 'none') ? 'block' : 'none';
+  };
 
-// Delete a specific chat message by its index in the comments array
-window.deleteChatMessage = async function(pi, index) {
-  // Get all licitações with the matching PI (they should have identical comments)
-  const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
-  if (!group || group.length === 0) return;
-  
-  // Remove the comment at the given index from each licitação in the group
-  group.forEach(lic => {
-    if (lic.comentarios && lic.comentarios.length > index) {
-      lic.comentarios.splice(index, 1);
-      lic.newCommentCount = lic.newCommentCount > 0 ? lic.newCommentCount - 1 : 0;
+  /* ---------- Chat Functions ---------- */
+  window.openComentariosByItem = function(pi) {
+    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (!lic) return;
+    chatMessages.innerHTML = "";
+    (lic.comentarios || []).forEach((msg, index) => {
+      const bubble = document.createElement("div");
+      bubble.className = "chat-bubble";
+      bubble.innerHTML = `
+        <p>${msg.text}</p>
+        <span class="chat-time">${formatTime(msg.time)}</span>
+        <button class="delete-comment-btn" onclick="deleteChatMessage('${pi}', ${index})">Delete</button>
+      `;
+      chatMessages.appendChild(bubble);
+    });
+    if (formComentarios.elements["licitacaoId"]) {
+      formComentarios.elements["licitacaoId"].value = pi;
     }
-  });
-  
-  // Update Firestore for all licitações in the group
-  for (const lic of group) {
-    try {
-      await db.collection("licitacoes").doc(lic.docId).update({
-        comentarios: lic.comentarios,
-        newCommentCount: lic.newCommentCount
-      });
-    } catch (err) {
-      console.error("Erro ao deletar comentário para PI " + pi, err);
+    openModal(modalComentarios);
+  };
+
+  window.deleteChatMessage = async function(pi, index) {
+    const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
+    if (!group || group.length === 0) return;
+    group.forEach(lic => {
+      if (lic.comentarios && lic.comentarios.length > index) {
+        lic.comentarios.splice(index, 1);
+        lic.newCommentCount = lic.comentarios.length;
+      }
+    });
+    for (const lic of group) {
+      try {
+        await db.collection("licitacoes").doc(lic.docId).update({
+          comentarios: lic.comentarios,
+          newCommentCount: lic.newCommentCount
+        });
+      } catch (err) {
+        console.error("Erro ao deletar comentário para PI " + pi, err);
+      }
     }
-  }
-  
-  renderLicitacoes();
-  // Reopen the chat to reflect the deletion
-  window.openComentariosByItem(pi);
-};
+    renderLicitacoes();
+    window.openComentariosByItem(pi);
+  };
 
-
-  // OC Dashboard for group by PI (includes a delete button for each OC)
+  /* ---------- OC Dashboard ---------- */
   window.verificarOCsByItem = function(pi) {
     const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
     if (group.length === 0) return;
@@ -563,6 +503,7 @@ window.deleteChatMessage = async function(pi, index) {
     let html = "";
     group.forEach(lic => {
       if (lic.ocs && lic.ocs.length > 0) {
+        lic.ocs.sort((a, b) => a.codigo.localeCompare(b.codigo));
         const ocHtml = lic.ocs.map(oc => `
           <div class="oc-item">
             <p><strong>OC Código:</strong> ${oc.codigo}</p>
@@ -582,21 +523,20 @@ window.deleteChatMessage = async function(pi, index) {
     });
     if (!html) html = "<p>Nenhuma OC cadastrada.</p>";
     dashboardDiv.innerHTML = html;
-    // Attach event listeners to the delete buttons
     dashboardDiv.querySelectorAll('.delete-oc-btn').forEach(button => {
       button.addEventListener('click', function(e) {
         e.stopPropagation();
         const pi = this.getAttribute('data-pi');
         const codigo = this.getAttribute('data-codigo');
-        deleteOC(pi, codigo);
+        if (confirm("Tem certeza que deseja excluir esta OC?")) {
+          deleteOC(pi, codigo);
+        }
       });
     });
     openModal(modalVerificarOCs);
   };
 
-  // Function to delete a specific OC from all licitações with the given PI
   window.deleteOC = async function(pi, codigo) {
-    console.log("deleteOC called with:", pi, codigo);
     const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
     if (matchingLics.length === 0) return;
     for (const lic of matchingLics) {
@@ -616,9 +556,10 @@ window.deleteChatMessage = async function(pi, index) {
       }
     }
     renderLicitacoes();
+    verificarOCsByItem(pi);
   };
 
-  // Edit / Delete licitação by PI
+  /* ---------- Licitação Edit/Delete (existing) ---------- */
   window.editItemByPI = function(pi) {
     const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
     if (!lic) return;
@@ -651,7 +592,6 @@ window.deleteChatMessage = async function(pi, index) {
     renderLicitacoes();
   };
 
-  // New function: Add New Licitação for existing PI
   window.addNewLicitacaoForPI = function(pi) {
     if (formLicitacao) {
       formLicitacao.reset();
@@ -667,7 +607,6 @@ window.deleteChatMessage = async function(pi, index) {
     }
   };
 
-  // Form Submission: Nova Licitação
   if (formLicitacao) {
     formLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -683,7 +622,7 @@ window.deleteChatMessage = async function(pi, index) {
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
         totalQuantity: totalQty,
-        balance: 0, // Manually added licitações do not update "Disp.p/lib"
+        balance: 0,
         ocTotal: 0,
         ocConsumed: 0,
         comprometido: 0,
@@ -706,7 +645,6 @@ window.deleteChatMessage = async function(pi, index) {
     });
   }
 
-  // Form Submission: Edit Licitação
   if (formEditLicitacao) {
     formEditLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -735,7 +673,6 @@ window.deleteChatMessage = async function(pi, index) {
     });
   }
 
-  // Form Submission: Comentários (Chat)
   if (formComentarios) {
     formComentarios.addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -748,7 +685,7 @@ window.deleteChatMessage = async function(pi, index) {
       };
       group.forEach(lic => {
         lic.comentarios.push(newMsg);
-        lic.newCommentCount = (lic.newCommentCount || 0) + 1;
+        lic.newCommentCount = lic.comentarios.length;
       });
       for (const lic of group) {
         try {
@@ -766,7 +703,6 @@ window.deleteChatMessage = async function(pi, index) {
     });
   }
 
-  // Load Data from Firestore
   async function loadData() {
     try {
       licitacoes = [];
@@ -790,7 +726,6 @@ window.deleteChatMessage = async function(pi, index) {
   }
   await loadData();
 
-  // Attach event listeners for search & category filter
   if (licitacoesSearch) {
     licitacoesSearch.addEventListener("input", renderLicitacoes);
   }
@@ -801,7 +736,19 @@ window.deleteChatMessage = async function(pi, index) {
   }
 });
 
-// Profile Menu & Auth Logic
+/* ---------- Additional Functions for Licitação Detail Editing ---------- */
+function editLicDetail(pi) {
+  if (confirm("Deseja editar esta licitação?")) {
+    editItemByPI(pi);
+  }
+}
+function deleteLicDetail(pi) {
+  if (confirm("Tem certeza que deseja excluir esta licitação?")) {
+    deleteItemByPI(pi);
+  }
+}
+
+/* ---------- Profile Menu & Auth Logic ---------- */
 const profileButton = document.getElementById('profileButton');
 const profileDropdown = document.getElementById('profileDropdown');
 const resetPasswordLink = document.getElementById('resetPasswordLink');
