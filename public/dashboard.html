@@ -24,7 +24,6 @@
     </div>
     <div class="menu">
       <a href="index.html" class="active">Licitações</a>
-      <!-- You can add more navigation links here if needed -->
     </div>
     <!-- Profile Menu -->
     <div class="profile-menu" id="profileMenu">
@@ -55,7 +54,6 @@
           <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
           <button class="export-btn" id="exportLicitacoesBtn">Exportar</button>
           <button class="export-btn" id="btnImportEstoque">Importar Estoque</button>
-          <!-- Removed global Import OC button -->
           <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
             <i class="bi bi-question-circle"></i>
           </a>
@@ -138,9 +136,7 @@
   <div class="modal-overlay" id="modalComentarios">
     <div class="modal modal-comentarios">
       <h2>Comentários</h2>
-      <div id="chatMessages" class="chat-messages">
-        <!-- Chat bubbles injected by script.js -->
-      </div>
+      <div id="chatMessages" class="chat-messages"></div>
       <form id="formComentarios" class="chat-input-form">
         <input type="hidden" name="licitacaoId">
         <input type="text" name="newMessage" placeholder="Digite uma mensagem..." required>
@@ -168,9 +164,7 @@
           <p id="ocPericiaValue">-- KG</p>
         </div>
       </div>
-      <div class="ocs-list" id="ocDashboardContent">
-        <!-- OC items will be injected by script.js -->
-      </div>
+      <div class="ocs-list" id="ocDashboardContent"></div>
       <button class="closeModal" data-modal="modalVerificarOCs">Fechar</button>
     </div>
   </div>
@@ -180,14 +174,18 @@
     <div class="modal">
       <h2>Novo OC Manual</h2>
       <form id="formNovaOC">
-        <label>Número da Licitação (read-only)</label>
-        <input type="text" id="novaOC_numLic" readonly>
+        <label>Número da Licitação</label>
+        <div id="novaOC_licContainer">
+          <input type="text" id="novaOC_numLic" required>
+        </div>
         <label>Número do OC</label>
         <input type="text" id="novaOC_ocNumber" required>
         <label>Balance do OC (KG)</label>
         <input type="number" id="novaOC_balance" required>
         <label>Nome da Empresa</label>
         <input type="text" id="novaOC_companyName" required>
+        <!-- Hidden field to store the item name -->
+        <input type="hidden" id="novaOC_itemSolicitado">
         <button type="submit">Salvar</button>
         <button type="button" id="cancelNovaOCBtn">Cancelar</button>
       </form>
@@ -198,9 +196,7 @@
   <div class="modal-overlay" id="modalLicitacaoInfo">
     <div class="modal">
       <h2>Detalhes da Licitação</h2>
-      <div id="licitacaoInfoContent">
-        <!-- Detailed info injected by script.js -->
-      </div>
+      <div id="licitacaoInfoContent"></div>
       <button class="closeModal" data-modal="modalLicitacaoInfo">Fechar</button>
     </div>
   </div>
@@ -211,5 +207,60 @@
   
   <!-- External JavaScript file -->
   <script src="script.js"></script>
+  
+  <!-- Profile Menu & Auth Logic (same as before) -->
+  <script>
+    const profileButton = document.getElementById('profileButton');
+    const profileDropdown = document.getElementById('profileDropdown');
+    const resetPasswordLink = document.getElementById('resetPasswordLink');
+    const logoutLink = document.getElementById('logoutLink');
+
+    profileButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      profileDropdown.style.display =
+        (profileDropdown.style.display === 'block') ? 'none' : 'block';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
+        profileDropdown.style.display = 'none';
+      }
+    });
+
+    resetPasswordLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        alert("Nenhum usuário logado. Faça login primeiro.");
+        return;
+      }
+      try {
+        await firebase.auth().sendPasswordResetEmail(user.email);
+        alert("Email de redefinição de senha enviado para: " + user.email);
+      } catch (error) {
+        console.error(error);
+        alert("Erro ao enviar redefinição de senha: " + error.message);
+      }
+      profileDropdown.style.display = 'none';
+    });
+
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        await firebase.auth().signOut();
+        window.location.href = "index.html";
+      } catch (error) {
+        console.error(error);
+        alert("Erro ao fazer logout: " + error.message);
+      }
+      profileDropdown.style.display = 'none';
+    });
+
+    firebase.auth().onAuthStateChanged((user) => {
+      if (!user) {
+        window.location.href = "index.html";
+      }
+    });
+  </script>
 </body>
 </html>
