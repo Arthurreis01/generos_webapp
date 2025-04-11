@@ -1,6 +1,6 @@
-document.addEventListener("DOMContentLoaded", async function() {
-  // Firebase Configuration and Initialization
-  const firebaseConfig = {
+// ===== Global Firebase Initialization & Global Variables =====
+if (!firebase.apps.length) {
+  firebase.initializeApp({
     apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
     authDomain: "generos-webapp.firebaseapp.com",
     projectId: "generos-webapp",
@@ -8,76 +8,85 @@ document.addEventListener("DOMContentLoaded", async function() {
     messagingSenderId: "874489491002",
     appId: "1:874489491002:web:46f893c170bbd944cb8f03",
     measurementId: "G-Y3VQW229XW"
-  };
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+  });
+}
+
+var licitacoes = [];           // Global array for licitações
+var licitacaoIdCounter = 1;     // Global counter
+
+// ===== Global Helper Functions =====
+function parseNumber(str) {
+  if (!str) return 0;
+  let s = str.trim().replace(/\s+/g, '');
+  const commaIndex = s.lastIndexOf(',');
+  const dotIndex = s.lastIndexOf('.');
+  if (commaIndex > -1 && dotIndex > -1) {
+    if (commaIndex > dotIndex) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+  } else if (commaIndex > -1) {
+    s = s.replace(',', '.');
   }
+  s = s.replace(/[^0-9.\-]/g, '');
+  return parseFloat(s) || 0;
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  if (dateStr.indexOf("/") !== -1) return dateStr;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatTime(time) {
+  const d = new Date(time);
+  if (isNaN(d.getTime())) return '';
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function removeExtraQuotes(str) {
+  return str.replace(/"/g, '').trim();
+}
+
+function showImportLoadingModal() {
+  const modal = document.getElementById("importLoadingModal");
+  if (modal) modal.style.display = 'flex';
+}
+
+function hideImportLoadingModal() {
+  const modal = document.getElementById("importLoadingModal");
+  if (modal) modal.style.display = 'none';
+}
+
+// Global openModal and closeModal functions
+function openModal(modal) {
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeModal(modal) {
+  if (modal) modal.style.display = 'none';
+}
+
+// ===== Main Code: Run after DOM is Loaded =====
+document.addEventListener("DOMContentLoaded", async function() {
   const db = firebase.firestore();
 
-  /* ---------- Helper Functions ---------- */
-  function parseNumber(str) {
-    if (!str) return 0;
-    let s = str.trim().replace(/\s+/g, '');
-    const commaIndex = s.lastIndexOf(',');
-    const dotIndex = s.lastIndexOf('.');
-    if (commaIndex > -1 && dotIndex > -1) {
-      if (commaIndex > dotIndex) {
-        s = s.replace(/\./g, '').replace(',', '.');
-      } else {
-        s = s.replace(/,/g, '');
-      }
-    } else if (commaIndex > -1) {
-      s = s.replace(',', '.');
-    }
-    s = s.replace(/[^0-9.\-]/g, '');
-    return parseFloat(s) || 0;
-  }
-  
-  function formatNumber(value) {
-    return new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-  }
-  
-  function formatDate(dateStr) {
-    if (!dateStr) return '';
-    if (dateStr.indexOf("/") !== -1) return dateStr;
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-  
-  function formatTime(time) {
-    const d = new Date(time);
-    if (isNaN(d.getTime())) return '';
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
-  
-  function removeExtraQuotes(str) {
-    return str.replace(/"/g, '').trim();
-  }
-  
-  function showImportLoadingModal() {
-    const modal = document.getElementById("importLoadingModal");
-    if (modal) modal.style.display = 'flex';
-  }
-  
-  function hideImportLoadingModal() {
-    const modal = document.getElementById("importLoadingModal");
-    if (modal) modal.style.display = 'none';
-  }
-  
-  /* ---------- Data Arrays and Counters ---------- */
-  let licitacoes = [];
-  let licitacaoIdCounter = 1;
-  
-  /* ---------- DOM Elements ---------- */
+  // ----- DOM Elements -----
   const fab = document.querySelector('.fab');
   const fabMenu = document.getElementById('fabMenu');
   const btnNewLicitacao = document.getElementById('btnNewLicitacao');
@@ -100,15 +109,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   const formNovaOC = document.getElementById("formNovaOC");
   let newOC_pi = null;
   
-  /* ---------- Modal Show/Close Functions ---------- */
-  function openModal(modal) {
-    if (modal) modal.style.display = 'flex';
-  }
-  
-  function closeModal(modal) {
-    if (modal) modal.style.display = 'none';
-  }
-  
+  // ----- Modal Show/Close Event Listeners -----
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeModal(overlay);
@@ -122,7 +123,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   });
   
-  /* ---------- FAB Menu ---------- */
+  // ----- FAB Menu Logic -----
   fab.addEventListener('click', function(e) {
     e.stopPropagation();
     fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
@@ -141,7 +142,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- CSV Export ---------- */
+  // ----- CSV Export -----
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
     data.forEach(item => {
@@ -169,7 +170,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- Import Estoque ---------- */
+  // ----- Import Estoque -----
   if (btnImportEstoque && fileEstoqueInput) {
     btnImportEstoque.addEventListener('click', function() {
       fileEstoqueInput.click();
@@ -244,11 +245,9 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- Manual OC Addition Per Card ---------- */
-  // Now accepts both PI and itemSolicitado.
+  // ----- Manual OC Addition Per Card -----
   window.openNovaOCModal = function(pi, itemSolicitado) {
     newOC_pi = pi;
-    // Find the licitation matching both the PI and the item
     const lic = licitacoes.find(l =>
       l.pi && l.pi.toUpperCase() === pi.toUpperCase() &&
       l.itemSolicitado === itemSolicitado
@@ -257,14 +256,12 @@ document.addEventListener("DOMContentLoaded", async function() {
       alert("Licitação não encontrada!");
       return;
     }
-    // Set the Licitation Number field to be editable and assign the corresponding licitation number
     const numLicInput = document.getElementById("novaOC_numLic");
     numLicInput.removeAttribute("readonly");
     numLicInput.value = lic.numeroProcesso || lic.pi;
     document.getElementById("novaOC_ocNumber").value = "";
     document.getElementById("novaOC_balance").value = "";
     document.getElementById("novaOC_companyName").value = "";
-    // Set the hidden itemSolicitado field
     document.getElementById("novaOC_itemSolicitado").value = lic.itemSolicitado;
     modalNovaOC.style.display = "flex";
   };
@@ -288,7 +285,6 @@ document.addEventListener("DOMContentLoaded", async function() {
       return;
     }
   
-    // Match licitations only for the specific licitation number and item
     const matchingLics = licitacoes.filter(l =>
       l.numeroProcesso === licitationNumber && l.itemSolicitado === itemSolicitado
     );
@@ -325,10 +321,10 @@ document.addEventListener("DOMContentLoaded", async function() {
     renderLicitacoes();
   }
   
-  /* ---------- Group Licitações by PI ---------- */
-  function groupByItem(licitacoes) {
+  // ----- Group Licitações by PI -----
+  function groupByItem(licitacoesArr) {
     const map = {};
-    licitacoes.forEach(lic => {
+    licitacoesArr.forEach(lic => {
       const piKey = (lic.pi || "").trim().toUpperCase();
       if (!map[piKey]) {
         map[piKey] = {
@@ -359,7 +355,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     return Object.values(map);
   }
   
-  /* ---------- Render Licitação Cards ---------- */
+  // ----- Render Licitação Cards -----
   function renderLicitacoes() {
     if (!licitacaoCards) return;
     licitacaoCards.innerHTML = "";
@@ -384,13 +380,13 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
     items.sort((a, b) => (a.itemSolicitado || "").localeCompare(b.itemSolicitado || ""));
   
-    items.forEach((item, groupIdx) => {
+    items.forEach((item) => {
       const total = item.totalQuantity;
       const used = item.ocConsumed;
       const remaining = total - used;
       let usageHTML = "";
       if (item.licitations && item.licitations.length > 0) {
-        usageHTML = item.licitations.map((lic, licIndex) => {
+        usageHTML = item.licitations.map((lic) => {
           const usedLic = lic.ocConsumed || 0;
           const totalLic = lic.totalQuantity || 0;
           const percent = totalLic > 0 ? Math.round((usedLic / totalLic) * 100) : 0;
@@ -447,7 +443,6 @@ document.addEventListener("DOMContentLoaded", async function() {
           <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
             <i class="bi bi-bar-chart"></i>
           </button>
-          <!-- Pass both PI and itemSolicitado to openNovaOCModal -->
           <button onclick="openNovaOCModal('${item.pi}', '${item.itemSolicitado}')" title="Adicionar OC Manual">
             <i class="bi bi-plus-square"></i>
           </button>
@@ -466,7 +461,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- Toggle Detail ---------- */
+  // ----- Toggle Detail -----
   window.toggleLicDetail = function(elemId, event) {
     if (event) event.stopPropagation();
     const elem = document.getElementById(elemId);
@@ -474,13 +469,13 @@ document.addEventListener("DOMContentLoaded", async function() {
     elem.style.display = (elem.style.display === 'none') ? 'block' : 'none';
   };
   
-  /* ---------- Single Licitação Edit/Delete ---------- */
-  window.editSingleLicitacao = function(licId) {
-    if (!confirm("Deseja editar esta licitação?")) return;
-    const lic = licitacoes.find(l => l.id === licId);
+  // ----- Single Licitação Edit/Delete -----
+  window.editItemByPI = function(pi) {
+    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
     if (!lic) return;
     if (formEditLicitacao) formEditLicitacao.reset();
-    if (formEditLicitacao.elements['id']) formEditLicitacao.elements['id'].value = lic.id;
+    if (formEditLicitacao.elements['id'])
+      formEditLicitacao.elements['id'].value = lic.id;
     formEditLicitacao.elements['numeroProcesso'].value = lic.numeroProcesso || "";
     formEditLicitacao.elements['nomeEmpresa'].value = lic.nomeEmpresa || "";
     formEditLicitacao.elements['telefoneEmpresa'].value = lic.telefoneEmpresa || "";
@@ -505,25 +500,6 @@ document.addEventListener("DOMContentLoaded", async function() {
     } catch (err) {
       console.error("Error deleting single licitacao:", err);
     }
-  };
-  
-  /* ---------- Licitação Edit/Delete Group ---------- */
-  window.editItemByPI = function(pi) {
-    const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
-    if (!lic) return;
-    if (formEditLicitacao) formEditLicitacao.reset();
-    if (formEditLicitacao.elements['id']) formEditLicitacao.elements['id'].value = lic.id;
-    formEditLicitacao.elements['numeroProcesso'].value = lic.numeroProcesso || "";
-    formEditLicitacao.elements['nomeEmpresa'].value = lic.nomeEmpresa || "";
-    formEditLicitacao.elements['telefoneEmpresa'].value = lic.telefoneEmpresa || "";
-    formEditLicitacao.elements['itemSolicitado'].value = lic.itemSolicitado || "";
-    formEditLicitacao.elements['pi'].value = lic.pi || "";
-    formEditLicitacao.elements['vencimentoAta'].value = lic.vencimentoAta || "";
-    formEditLicitacao.elements['status'].value = lic.status || "";
-    formEditLicitacao.elements['balance'].value = lic.totalQuantity || 0;
-    formEditLicitacao.elements['categoria'].value = lic.categoria || "";
-    formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
-    openModal(modalEditLicitacao);
   };
   
   window.deleteItemByPI = async function(pi) {
@@ -555,7 +531,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   };
   
-  /* ---------- Form Submission: Nova Licitação ---------- */
+  // ----- Form Submission: Nova Licitação -----
   if (formLicitacao) {
     formLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -594,7 +570,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- Form Submission: Edit Licitação ---------- */
+  // ----- Form Submission: Edit Licitação -----
   if (formEditLicitacao) {
     formEditLicitacao.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -623,7 +599,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- Form Submission: Comentários (Chat) ---------- */
+  // ----- Form Submission: Comentários (Chat) -----
   if (formComentarios) {
     formComentarios.addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -654,7 +630,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  /* ---------- Load Data from Firestore ---------- */
+  // ----- Load Data from Firestore -----
   async function loadData() {
     try {
       licitacoes = [];
@@ -686,45 +662,67 @@ document.addEventListener("DOMContentLoaded", async function() {
       radio.addEventListener('change', renderLicitacoes);
     });
   }
-});
-
-/* ---------- Additional Functions for Licitação Detail Editing ---------- */
-function editSingleLicitacao(licId) {
-  if (!confirm("Deseja editar esta licitação?")) return;
-  const lic = licitacoes.find(l => l.id === licId);
-  if (!lic) return;
-  if (formEditLicitacao) formEditLicitacao.reset();
-  if (formEditLicitacao.elements['id']) formEditLicitacao.elements['id'].value = lic.id;
-  formEditLicitacao.elements['numeroProcesso'].value = lic.numeroProcesso || "";
-  formEditLicitacao.elements['nomeEmpresa'].value = lic.nomeEmpresa || "";
-  formEditLicitacao.elements['telefoneEmpresa'].value = lic.telefoneEmpresa || "";
-  formEditLicitacao.elements['itemSolicitado'].value = lic.itemSolicitado || "";
-  formEditLicitacao.elements['pi'].value = lic.pi || "";
-  formEditLicitacao.elements['vencimentoAta'].value = lic.vencimentoAta || "";
-  formEditLicitacao.elements['status'].value = lic.status || "";
-  formEditLicitacao.elements['balance'].value = lic.totalQuantity || 0;
-  formEditLicitacao.elements['categoria'].value = lic.categoria || "";
-  formEditLicitacao.elements['cmm'].value = lic.cmm || 0;
-  openModal(modalEditLicitacao);
-}
-
-function deleteSingleLicitacao(licId) {
-  if (!confirm("Tem certeza que deseja excluir APENAS esta licitação?")) return;
-  const lic = licitacoes.find(l => l.id === licId);
-  if (!lic) return;
-  db.collection("licitacoes").doc(lic.docId).delete().then(() => {
-    licitacoes = licitacoes.filter(x => x.id !== lic.id);
-    renderLicitacoes();
-  }).catch(err => {
-    console.error("Error deleting single licitacao:", err);
+  
+  // ----- Firebase Auth State Listener (Profile) -----
+  firebase.auth().onAuthStateChanged((user) => {
+    if (!user) {
+      window.location.href = "index.html";
+    }
   });
-}
+  
+  // ----- Profile Menu & Auth Logic (Attach here; remove duplicate inline code in HTML) -----
+  const profileButton = document.getElementById('profileButton');
+  const profileDropdown = document.getElementById('profileDropdown');
+  const resetPasswordLink = document.getElementById('resetPasswordLink');
+  const logoutLink = document.getElementById('logoutLink');
 
-/* ---------- Chat Functions ---------- */
+  profileButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
+  });
+  
+  document.addEventListener('click', (e) => {
+    if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
+      profileDropdown.style.display = 'none';
+    }
+  });
+  
+  resetPasswordLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      alert("Nenhum usuário logado. Faça login primeiro.");
+      return;
+    }
+    try {
+      await firebase.auth().sendPasswordResetEmail(user.email);
+      alert("Email de redefinição de senha enviado para: " + user.email);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao enviar redefinição de senha: " + error.message);
+    }
+    profileDropdown.style.display = 'none';
+  });
+  
+  logoutLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      await firebase.auth().signOut();
+      window.location.href = "index.html";
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao fazer logout: " + error.message);
+    }
+    profileDropdown.style.display = 'none';
+  });
+});
+// ===== Global Functions Accessible Outside DOMContentLoaded =====
+
+// Chat Functions
 window.openComentariosByItem = function(pi) {
   const lic = licitacoes.find(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (!lic) return;
-  chatMessages.innerHTML = "";
+  document.getElementById("chatMessages").innerHTML = "";
   (lic.comentarios || []).forEach((msg, index) => {
     const bubble = document.createElement("div");
     bubble.className = "chat-bubble";
@@ -733,12 +731,12 @@ window.openComentariosByItem = function(pi) {
       <span class="chat-time">${formatTime(msg.time)}</span>
       <button class="delete-comment-btn" onclick="deleteChatMessage('${pi}', ${index})">Delete</button>
     `;
-    chatMessages.appendChild(bubble);
+    document.getElementById("chatMessages").appendChild(bubble);
   });
-  if (formComentarios.elements["licitacaoId"]) {
-    formComentarios.elements["licitacaoId"].value = pi;
+  if (document.getElementById("formComentarios").elements["licitacaoId"]) {
+    document.getElementById("formComentarios").elements["licitacaoId"].value = pi;
   }
-  openModal(modalComentarios);
+  openModal(document.getElementById("modalComentarios"));
 };
   
 window.deleteChatMessage = async function(pi, index) {
@@ -752,7 +750,7 @@ window.deleteChatMessage = async function(pi, index) {
   });
   for (const lic of group) {
     try {
-      await db.collection("licitacoes").doc(lic.docId).update({
+      await firebase.firestore().collection("licitacoes").doc(lic.docId).update({
         comentarios: lic.comentarios,
         newCommentCount: lic.newCommentCount
       });
@@ -763,8 +761,8 @@ window.deleteChatMessage = async function(pi, index) {
   renderLicitacoes();
   window.openComentariosByItem(pi);
 };
-  
-/* ---------- OC Dashboard ---------- */
+
+// OC Dashboard Functions
 window.verificarOCsByItem = function(pi) {
   const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (group.length === 0) return;
@@ -780,15 +778,12 @@ window.verificarOCsByItem = function(pi) {
       });
     }
   });
-  if (document.getElementById("ocTotalValue")) {
+  if (document.getElementById("ocTotalValue"))
     document.getElementById("ocTotalValue").textContent = formatNumber(totalOC) + " KG";
-  }
-  if (document.getElementById("ocArrecadadoValue")) {
+  if (document.getElementById("ocArrecadadoValue"))
     document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArrecadado) + " KG";
-  }
-  if (document.getElementById("ocPericiaValue")) {
+  if (document.getElementById("ocPericiaValue"))
     document.getElementById("ocPericiaValue").textContent = formatNumber(totalPericia) + " KG";
-  }
   const dashboardDiv = document.getElementById("ocDashboardContent");
   if (!dashboardDiv) return;
   let html = "";
@@ -824,7 +819,7 @@ window.verificarOCsByItem = function(pi) {
       }
     });
   });
-  openModal(modalVerificarOCs);
+  openModal(document.getElementById("modalVerificarOCs"));
 };
   
 window.deleteOC = async function(pi, codigo) {
@@ -836,7 +831,7 @@ window.deleteOC = async function(pi, codigo) {
       lic.ocTotal = lic.ocs.reduce((acc, oc) => acc + oc.qtdeComprada, 0);
       lic.ocConsumed = lic.ocs.reduce((acc, oc) => acc + oc.qtdeArrecadada, 0);
       try {
-        await db.collection("licitacoes").doc(lic.docId).update({
+        await firebase.firestore().collection("licitacoes").doc(lic.docId).update({
           ocs: lic.ocs,
           ocTotal: lic.ocTotal,
           ocConsumed: lic.ocConsumed
@@ -849,8 +844,9 @@ window.deleteOC = async function(pi, codigo) {
   renderLicitacoes();
   verificarOCsByItem(pi);
 };
-  
+
 /* ---------- Profile Menu & Auth Logic ---------- */
+// (Make sure to remove any duplicate inline script blocks in your HTML that declare these variables.)
 const profileButton = document.getElementById('profileButton');
 const profileDropdown = document.getElementById('profileDropdown');
 const resetPasswordLink = document.getElementById('resetPasswordLink');
@@ -860,13 +856,13 @@ profileButton.addEventListener('click', (e) => {
   e.stopPropagation();
   profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
 });
-  
+
 document.addEventListener('click', (e) => {
   if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
     profileDropdown.style.display = 'none';
   }
 });
-  
+
 resetPasswordLink.addEventListener('click', async (e) => {
   e.preventDefault();
   const user = firebase.auth().currentUser;
@@ -883,7 +879,7 @@ resetPasswordLink.addEventListener('click', async (e) => {
   }
   profileDropdown.style.display = 'none';
 });
-  
+
 logoutLink.addEventListener('click', async (e) => {
   e.preventDefault();
   try {
@@ -895,9 +891,10 @@ logoutLink.addEventListener('click', async (e) => {
   }
   profileDropdown.style.display = 'none';
 });
-  
+
 firebase.auth().onAuthStateChanged((user) => {
   if (!user) {
     window.location.href = "index.html";
   }
 });
+
