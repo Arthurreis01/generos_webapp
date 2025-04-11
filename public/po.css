@@ -1,0 +1,85 @@
+/* ============ Basic Reset & Layout ============ */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f2f5;
+    color: #333;
+    padding-top: 70px;
+  }
+  .container {
+    margin-top: 20px;
+  }
+  
+  /* ============ Header / Navbar ============ */
+  .navbar {
+    background-color: #004080 !important;
+  }
+  .navbar-brand, .nav-link {
+    color: #fff !important;
+  }
+  .navbar-brand:hover, .nav-link:hover {
+    color: #e0e0e0 !important;
+  }
+  
+  /* ============ Form & Filter Styles ============ */
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .filter-row input,
+  .filter-row button {
+    max-width: 200px;
+  }
+  
+  /* Adicionar Agendamento Modal */
+  .modal .form-label {
+    font-weight: bold;
+  }
+  .modal .form-control {
+    margin-top: 5px;
+  }
+  
+  /* ============ Table Styles ============ */
+  .table-responsive {
+    margin-top: 1rem;
+  }
+  table {
+    margin-bottom: 1rem;
+  }
+  .po-table th,
+  .po-table td {
+    text-align: center;
+  }
+  .editable {
+    background-color: #fffbea;
+    border: 1px dashed #ccc;
+  }
+  
+  /* ============ Button Enhancements ============ */
+  .btn {
+    font-size: 0.9rem;
+    margin: 2px;
+  }
+  .btn i {
+    margin-right: 4px;
+  }
+  
+  /* ============ Modal Overrides ============ */
+  .modal-header, .modal-footer {
+    background-color: #f8f9fa;
+  }
+  .modal-title {
+    font-weight: bold;
+  }
+  
+  /* ============ Additional Custom Styles ============ */
+  .open-form-btn {
+    margin-bottom: 1rem;
+  }
+  
