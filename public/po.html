@@ -1,353 +1,200 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Guara-system - Controle de POs</title>
-  <!-- Link to external CSS -->
-  <link rel="stylesheet" href="style.css">
-  <!-- Bootstrap Icons for buttons -->
+  <title>Agendamentos - Controle de POs</title>
+  
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-  <!-- Firebase Scripts -->
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="po.css">
+  
+  <!-- Firebase Scripts (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <!-- SheetJS library to support Excel file import -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
-<body>
-  <!-- Navbar (fixed header) -->
-  <div class="navbar">
-    <div class="logo">
-      <img src="logo.png" alt="Logo">
-      <h1>Guara-system</h1>
-      <h2 id="csup">Centro de Suprimentos do Abastecimento</h2>
-    </div>
-    <div class="menu">
-      <a href="dashboard.html">Licitações</a>
-      <a href="po.html" class="active">Controle de POs</a>
-    </div>
+<body class="bg-light">
 
-    <!-- Profile Menu -->
-    <div class="profile-menu" id="profileMenu">
-      <button class="profile-button" id="profileButton" title="Perfil">
-        <i class="bi bi-person-circle"></i>
+  <!-- Header with Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">Guara-system</a>
+      <div class="collapse navbar-collapse justify-content-end">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="dashboard.html">
+              <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container mt-5">
+    <h2 class="mb-3"><i class="bi bi-calendar-check"></i> Lista de agendamentos</h2>
+    
+    <!-- Filter Row: Search text and Date Range -->
+    <div class="filter-row mb-3">
+      <div class="me-2">
+        <input type="text" id="tableSearchInput" class="form-control" placeholder="Buscar na tabela...">
+      </div>
+      <div class="me-2">
+        <input type="date" id="dateFrom" class="form-control" placeholder="De data">
+      </div>
+      <div class="me-2">
+        <input type="date" id="dateTo" class="form-control" placeholder="Até data">
+      </div>
+      <button class="btn btn-primary" onclick="applyTableFilter()">
+        <i class="bi bi-search"></i> Filtrar
       </button>
-      <div class="profile-dropdown" id="profileDropdown">
-        <a href="#" id="resetPasswordLink">
-          <i class="bi bi-key"></i> Resetar Senha
-        </a>
-        <a href="#" id="logoutLink">
-          <i class="bi bi-box-arrow-right"></i> Sair
-        </a>
-      </div>
+    </div>
+    
+    <!-- "Adicionar agendamento" button (positioned above the table) -->
+    <div class="mb-3">
+      <button class="btn btn-success" onclick="openAddModal()">
+        <i class="bi bi-plus-circle"></i> Adicionar agendamento
+      </button>
+    </div>
+
+    <!-- Agendamentos Table -->
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped align-middle" id="agendaTable">
+        <thead class="table-dark">
+          <tr>
+            <th>Data Prevista</th>
+            <th>Item</th>
+            <th>QTD (KG)</th>
+            <th>OC</th>
+            <th>Fornecedor</th>
+            <th>Nota Fiscal</th>
+            <th>OBS</th>
+            <th>Status</th>
+            <th>Data Recebimento</th>
+            <th>Data Perícia</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="agendaTbody">
+          <!-- Rows will be injected here -->
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Main Container -->
-  <div class="container">
-    <!-- PO Board Section -->
-    <section id="poBoard">
-      <div class="section-header">
-        <h2 class="titles">Controle de POs</h2>
-        <div class="search-container">
-          <!-- PO Search -->
-          <input type="text" id="poSearch" placeholder="Pesquisar POs...">
-          <!-- Export CSV button -->
-          <button class="export-btn" id="exportPOBtn">Exportar</button>
-          <!-- Import Estoque button -->
-          <button class="export-btn" id="btnImportEstoque">Importar Estoque</button>
-          <!-- Help link -->
-          <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
-            <i class="bi bi-question-circle"></i>
-          </a>
+  <!-- ========== MODAL: Adicionar Agendamento ========== -->
+  <div class="modal fade" id="addModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formAgendamento">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-calendar-plus"></i> Adicionar agendamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
-      </div>
-      <div class="kanban-board">
-        <div class="kanban-column" id="colNew">
-          <h3>Novo PO</h3>
-          <div class="column-content" id="newPOs"></div>
+        <div class="modal-body">
+          <!-- OC Search: Allow user to type only the OC number -->
+          <div class="mb-3">
+            <label class="form-label">Buscar e selecionar OC:</label>
+            <input type="text" id="ocSearchInput" class="form-control mb-2" placeholder="Digite o número do OC" oninput="filterOcOptions()">
+            <select id="selectOC" class="form-select" required>
+              <option value="">Carregando...</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Data Prevista:</label>
+            <input type="date" class="form-control" name="dataPrevista" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Quantidade (KG):</label>
+            <input type="number" step="0.01" class="form-control" name="qtd" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Fornecedor:</label>
+            <input type="text" class="form-control" name="fornecedor" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nota Fiscal:</label>
+            <input type="text" class="form-control" name="notaFiscal">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">OBS:</label>
+            <textarea class="form-control" name="obs"></textarea>
+          </div>
         </div>
-        <div class="kanban-column" id="colOC">
-          <h3>OC</h3>
-          <div class="column-content" id="ocPOs"></div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Salvar
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle"></i> Cancelar
+          </button>
         </div>
-        <div class="kanban-column" id="colAccepted">
-          <h3>Com Data de Aceite</h3>
-          <div class="column-content" id="acceptedPOs"></div>
-        </div>
-        <div class="kanban-column" id="colAlert">
-          <h3>Alertas</h3>
-          <div class="column-content" id="alertPOs"></div>
-        </div>
-        <div class="kanban-column" id="colArchived">
-          <h3>Arquivados</h3>
-          <div class="column-content" id="archivedPOs"></div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Floating Action Button and Menu -->
-  <div class="fab">+</div>
-  <div class="fab-menu" id="fabMenu">
-    <button id="btnNewLicitacao">Adicionar nova licitação</button>
-    <button id="btnNewPO">Adicionar novo PO</button>
-    <a href="#estoque">Inserir estoque atualizado</a>
-  </div>
-
-  <!-- Modals -->
-  <!-- Modal: Nova Licitação (with CMM field) -->
-  <div class="modal-overlay" id="modalLicitacao">
-    <div class="modal">
-      <h2>Nova Licitação</h2>
-      <form id="formLicitacao">
-        <input type="text" name="numeroProcesso" placeholder="Número do Processo" required>
-        <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
-        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
-        <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
-        <input type="date" name="vencimentoAta" required>
-        <input type="text" name="status" placeholder="Status da licitação" required>
-        <input type="number" name="balance" placeholder="Saldo da licitação" required>
-        <label for="categoria">Categoria</label>
-        <select name="categoria" required>
-          <option value="Frigorificados">Frigorificados</option>
-          <option value="Secos">Secos</option>
-        </select>
-        <input type="number" name="cmm" placeholder="CMM (Consumo Mensal Médio)" step="0.01" required>
-        <button type="submit">Salvar</button>
       </form>
-      <button class="closeModal" data-modal="modalLicitacao">Fechar</button>
     </div>
   </div>
 
-  <!-- Modal: Edit Licitação (with CMM field) -->
-  <div class="modal-overlay" id="modalEditLicitacao">
-    <div class="modal">
-      <h2>Editar Licitação</h2>
-      <form id="formEditLicitacao">
-        <input type="hidden" name="id">
-        <input type="text" name="numeroProcesso" placeholder="Número do Processo" required>
-        <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
-        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
-        <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
-        <input type="date" name="vencimentoAta" required>
-        <input type="text" name="status" placeholder="Status da licitação" required>
-        <input type="number" name="balance" placeholder="Saldo da licitação" required>
-        <label for="categoria">Categoria</label>
-        <select name="categoria" required>
-          <option value="Frigorificados">Frigorificados</option>
-          <option value="Secos">Secos</option>
-        </select>
-        <input type="number" name="cmm" placeholder="CMM (Consumo Mensal Médio)" step="0.01" required>
-        <button type="submit">Salvar Alterações</button>
+  <!-- ========== MODAL: Recebimento ========== -->
+  <div class="modal fade" id="recebimentoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formRecebimento">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-box-seam"></i> Recebimento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Data de Recebimento:</label>
+            <input type="date" class="form-control" name="dataRecebimento" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Quantidade Recebida (KG):</label>
+            <input type="number" step="0.01" class="form-control" name="qtdRecebida" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Confirmar
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle"></i> Cancelar
+          </button>
+        </div>
       </form>
-      <button class="closeModal" data-modal="modalEditLicitacao">Fechar</button>
     </div>
   </div>
 
-  <!-- Modal: Novo PO -->
-  <div class="modal-overlay" id="modalPO">
-    <div class="modal">
-      <h2>Novo PO</h2>
-      <form id="formPO">
-        <label for="elemento">Elemento</label>
-        <input type="text" name="elemento" placeholder="Ex: 135467" required>
-        <label for="prioridade">Prioridade</label>
-        <select name="prioridade" required>
-          <option value="Critical">Critical</option>
-          <option value="High">High</option>
-          <option value="Normal">Normal</option>
-          <option value="Low">Low</option>
-        </select>
-        <label for="data">Data</label>
-        <input type="date" name="data" required>
-        <label for="status">Status</label>
-        <select name="status" required>
-          <option value="New">New</option>
-        </select>
-        <label for="valor">Valor</label>
-        <input type="number" name="valor" placeholder="Valor do PO" required>
-        <label for="arquivos">Arquivos</label>
-        <input type="text" name="arquivos" placeholder="Nome do arquivo ou link">
-        <label for="observacoes">Observações</label>
-        <textarea name="observacoes" placeholder="Comentários ou observações"></textarea>
-        <label for="licitacaoId">Selecione a Licitação</label>
-        <select name="licitacaoId" id="licitacaoSelect" required>
-          <!-- Options populated dynamically -->
-        </select>
-        <button type="submit">Salvar</button>
+  <!-- ========== MODAL: Perícia ========== -->
+  <div class="modal fade" id="periciaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formPericia">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-question-octagon"></i> Perícia</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <p>O item está correto?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success" id="btnPericiaOk">
+            <i class="bi bi-check-circle"></i> Sim, arquivar
+          </button>
+          <button type="button" class="btn btn-warning" id="btnPericiaPendencia">
+            <i class="bi bi-exclamation-diamond"></i> Não, manter em pendência
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle"></i> Cancelar
+          </button>
+        </div>
       </form>
-      <button class="closeModal" data-modal="modalPO">Fechar</button>
     </div>
   </div>
 
-  <!-- Modal: Edit PO -->
-  <div class="modal-overlay" id="modalEditPO">
-    <div class="modal">
-      <h2>Editar PO</h2>
-      <form id="formEditPO">
-        <input type="hidden" name="index">
-        <label for="elemento">Elemento</label>
-        <input type="text" name="elemento" required>
-        <label for="prioridade">Prioridade</label>
-        <select name="prioridade" required>
-          <option value="Critical">Critical</option>
-          <option value="High">High</option>
-          <option value="Normal">Normal</option>
-          <option value="Low">Low</option>
-        </select>
-        <label for="data">Data</label>
-        <input type="date" name="data" required>
-        <label for="status">Status</label>
-        <select name="status" required>
-          <option value="New">New</option>
-          <option value="OC">OC</option>
-          <option value="Waiting">Waiting</option>
-          <option value="Problem">Problem</option>
-          <option value="Accepted">Accepted</option>
-        </select>
-        <label for="valor">Valor</label>
-        <input type="number" name="valor" required>
-        <label for="arquivos">Arquivos</label>
-        <input type="text" name="arquivos">
-        <label for="observacoes">Observações</label>
-        <textarea name="observacoes"></textarea>
-        <label for="editLicitacaoSelect">Selecione a Licitação</label>
-        <select name="licitacaoId" id="editLicitacaoSelect" required>
-          <!-- Options populated dynamically -->
-        </select>
-        <button type="submit">Salvar Alterações</button>
-      </form>
-      <button class="closeModal" data-modal="modalEditPO">Fechar</button>
-    </div>
-  </div>
-
-  <!-- Modal: Verificar OCs -->
-  <div class="modal-overlay" id="modalVerificarOCs">
-    <div class="modal" id="OCmodal">
-      <h2>OCs desta Licitação</h2>
-      <div id="consumoSummary"></div>
-      <div class="ocs-table-container">
-        <table class="table" id="tableVerificarOCs">
-          <thead>
-            <tr>
-              <th>Elemento</th>
-              <th>Prioridade</th>
-              <th>Data</th>
-              <th>Status</th>
-              <th>Valor</th>
-              <th>Arquivos</th>
-              <th>Observações</th>
-              <th>Consumos</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Filled dynamically -->
-          </tbody>
-        </table>
-      </div>
-      <button class="closeModal" data-modal="modalVerificarOCs">Fechar</button>
-    </div>
-  </div>
-
-  <!-- Modal: Comentários (Chat) -->
-  <div class="modal-overlay" id="modalComentarios">
-    <div class="modal modal-comentarios">
-      <h2>Comentários</h2>
-      <div id="chatMessages" class="chat-messages">
-        <!-- Chat bubbles appear here -->
-      </div>
-      <form id="formComentarios" class="chat-input-form">
-        <input type="hidden" name="licitacaoId">
-        <input type="text" name="newMessage" placeholder="Digite uma mensagem..." required>
-        <button type="submit">Enviar</button>
-      </form>
-      <button class="closeModal" data-modal="modalComentarios">Fechar</button>
-    </div>
-  </div>
-
-  <!-- Modal: PO Details -->
-  <div class="modal-overlay" id="modalPODetails">
-    <div class="modal">
-      <h2>Detalhes do PO</h2>
-      <div id="poDetailContent">
-        <!-- PO details will be injected here -->
-      </div>
-      <button class="closeModal" data-modal="modalPODetails">Fechar</button>
-    </div>
-  </div>
-
-  <!-- Modal: Licitação Info -->
-  <div class="modal-overlay" id="modalLicitacaoInfo">
-    <div class="modal">
-      <h2>Detalhes da Licitação</h2>
-      <div id="licitacaoInfoContent">
-        <!-- Licitação info injected dynamically -->
-      </div>
-      <button class="closeModal" data-modal="modalLicitacaoInfo">Fechar</button>
-    </div>
-  </div>
-
-  <!-- Additional Import Estoque element -->
-  <input type="file" id="fileEstoque" style="display: none">
-
-  <!-- Main Logic (script.js) -->
-  <script src="script.js"></script>
-
-  <!-- Profile Menu & Auth Logic -->
-  <script>
-    const profileButton = document.getElementById('profileButton');
-    const profileDropdown = document.getElementById('profileDropdown');
-    const resetPasswordLink = document.getElementById('resetPasswordLink');
-    const logoutLink = document.getElementById('logoutLink');
-
-    profileButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      profileDropdown.style.display =
-        (profileDropdown.style.display === 'block') ? 'none' : 'block';
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
-        profileDropdown.style.display = 'none';
-      }
-    });
-
-    resetPasswordLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const user = firebase.auth().currentUser;
-      if (!user) {
-        alert("Nenhum usuário logado. Faça login primeiro.");
-        return;
-      }
-      try {
-        await firebase.auth().sendPasswordResetEmail(user.email);
-        alert("Email de redefinição de senha enviado para: " + user.email);
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao enviar redefinição de senha: " + error.message);
-      }
-      profileDropdown.style.display = 'none';
-    });
-
-    logoutLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      try {
-        await firebase.auth().signOut();
-        window.location.href = "index.html";
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao fazer logout: " + error.message);
-      }
-      profileDropdown.style.display = 'none';
-    });
-
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) {
-        window.location.href = "index.html";
-      }
-    });
-  </script>
+  <!-- Bootstrap JS Bundle (with Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Custom JavaScript -->
+  <script src="po.js"></script>
 </body>
 </html>
