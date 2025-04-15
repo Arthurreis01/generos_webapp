@@ -1,0 +1,93 @@
+/* ============ Reset & Base Typography ============ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+}
+body {
+  background: #f7f9fc;
+  color: #444;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 16px;
+  padding-top: 70px; /* Espaço para a navbar fixa */
+}
+
+/* ============ Navbar ============ */
+.navbar {
+  background-color: #004080 !important;
+}
+.navbar-brand, .nav-link {
+  color: #fff !important;
+}
+.navbar-brand:hover, .nav-link:hover {
+  color: #e0e0e0 !important;
+}
+
+/* ============ Container ============ */
+.container {
+  margin-top: 20px;
+  max-height: 100vh;
+}
+h2 {
+  font-weight: 500;
+  color: #222;
+}
+
+/* ============ Filter Row & Search ============ */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.filter-row .form-label {
+  margin-bottom: 0.2rem;
+}
+.filter-row input {
+  max-width: 180px;
+}
+
+/* ============ Table ============ */
+.table-hover tbody tr:hover {
+  background-color: #f1f3f5;
+}
+.table-sm td, .table-sm th {
+  padding: 0.5rem;
+}
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: #ffffff;
+}
+.table-striped tbody tr:nth-of-type(even) {
+  background-color: #fdfdfd;
+}
+.table-light thead th {
+  background-color: #e9ecef !important;
+  border-bottom: 2px solid #ccc !important;
+}
+#agendaTable td, #agendaTable th {
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow-x: auto;
+}
+
+/* ============ Ações centralizadas ============ */
+#agendaTable th.text-center,
+#agendaTable td.text-center {
+  text-align: center;
+}
+
+/* ============ Editable Cells ============ */
+.editable {
+  background-color: #fffbea;
+  border: 1px dashed #ccc;
+}
+
+/* ============ Tooltip Transition ============ */
+.btn[data-bs-toggle="tooltip"] {
+  position: relative;
+}
