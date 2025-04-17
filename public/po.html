@@ -1,22 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Agendamentos - Controle de POs</title>
-
   <!-- Bootstrap CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Bootstrap Icons -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
-  />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="po.css" />
-
+  <link rel="stylesheet" href="po.css">
+  
   <!-- Firebase (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -30,12 +23,7 @@
       <div class="collapse navbar-collapse justify-content-end">
         <ul class="navbar-nav">
           <li class="nav-item">
-            <a
-              class="nav-link"
-              href="dashboard.html"
-              data-bs-toggle="tooltip"
-              title="Dashboard"
-            >
+            <a class="nav-link" href="dashboard.html" data-bs-toggle="tooltip" data-bs-container="body" title="Dashboard">
               <i class="bi bi-speedometer2"></i>
             </a>
           </li>
@@ -46,21 +34,13 @@
 
   <!-- Container principal -->
   <div class="container mt-5">
-    <h2 class="mb-3">
-      <i class="bi bi-calendar-check"></i> Lista de agendamentos
-    </h2>
+    <h2 class="mb-3"><i class="bi bi-calendar-check"></i> Lista de agendamentos</h2>
 
     <!-- Barra de busca -->
     <div class="row mb-3">
       <div class="col-md-3">
         <label for="tableSearchInput" class="form-label">Buscar:</label>
-        <input
-          type="text"
-          id="tableSearchInput"
-          class="form-control"
-          placeholder="Buscar na tabela..."
-          onkeyup="applyTableFilter();"
-        />
+        <input type="text" id="tableSearchInput" class="form-control" placeholder="Buscar na tabela..." onkeyup="applyTableFilter();">
       </div>
     </div>
 
@@ -68,30 +48,20 @@
     <div class="filter-row mb-3 align-items-end">
       <div class="me-2">
         <label for="dateFrom" class="form-label">Data Prevista (De):</label>
-        <input type="date" id="dateFrom" class="form-control" />
+        <input type="date" id="dateFrom" class="form-control">
       </div>
       <div class="me-2">
         <label for="dateTo" class="form-label">Data Prevista (Até):</label>
-        <input type="date" id="dateTo" class="form-control" />
+        <input type="date" id="dateTo" class="form-control">
       </div>
-      <button
-        class="btn btn-sm btn-primary mt-2"
-        data-bs-toggle="tooltip"
-        title="Filtrar"
-        onclick="applyTableFilter()"
-      >
+      <button class="btn btn-sm btn-primary mt-2" data-bs-toggle="tooltip" data-bs-container="body" title="Filtrar" onclick="applyTableFilter()">
         <i class="bi bi-search"></i>
       </button>
     </div>
 
     <!-- Botão de adicionar agendamento (somente ícone) -->
     <div class="mb-3">
-      <button
-        class="btn btn-success"
-        data-bs-toggle="tooltip"
-        title="Adicionar agendamento"
-        onclick="openAddModal()"
-      >
+      <button class="btn btn-success" data-bs-toggle="tooltip" data-bs-container="body" title="Adicionar agendamento" onclick="openAddModal()">
         <i class="bi bi-plus-circle"></i>
       </button>
     </div>
@@ -126,56 +96,32 @@
     <div class="modal-dialog">
       <form class="modal-content" id="formAgendamento">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="bi bi-calendar-plus"></i> Adicionar agendamento
-          </h5>
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Fechar"
-          ></button>
+          <h5 class="modal-title"><i class="bi bi-calendar-plus"></i> Adicionar agendamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Buscar e selecionar OC:</label>
-            <input
-              type="text"
-              id="ocSearchInput"
-              class="form-control mb-2"
-              placeholder="Digite o número do OC"
-              oninput="filterOcOptions()"
-            />
+            <input type="text" id="ocSearchInput" class="form-control mb-2" placeholder="Digite o número do OC" oninput="filterOcOptions()">
             <select id="selectOC" class="form-select" required>
               <option value="">Carregando...</option>
             </select>
           </div>
           <div class="mb-3">
             <label class="form-label">Data Prevista:</label>
-            <input type="date" class="form-control" name="dataPrevista" required />
+            <input type="date" class="form-control" name="dataPrevista" required>
           </div>
           <div class="mb-3">
             <label class="form-label">Quantidade (KG):</label>
-            <input
-              type="number"
-              step="0.01"
-              class="form-control"
-              name="qtd"
-              required
-            />
+            <input type="number" step="0.01" class="form-control" name="qtd" required>
           </div>
           <div class="mb-3">
             <label class="form-label">Fornecedor:</label>
-            <input
-              type="text"
-              class="form-control"
-              name="fornecedor"
-              required
-            />
+            <input type="text" class="form-control" name="fornecedor" required>
           </div>
           <div class="mb-3">
             <label class="form-label">Nota Fiscal:</label>
-            <input type="text" class="form-control" name="notaFiscal" />
+            <input type="text" class="form-control" name="notaFiscal">
           </div>
           <div class="mb-3">
             <label class="form-label">OBS:</label>
@@ -183,21 +129,10 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            data-bs-toggle="tooltip"
-            title="Salvar"
-          >
+          <button type="submit" class="btn btn-primary" data-bs-toggle="tooltip" data-bs-container="body" title="Salvar">
             <i class="bi bi-check-circle"></i>
           </button>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            data-bs-dismiss="modal"
-            data-bs-toggle="tooltip"
-            title="Cancelar"
-          >
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-bs-toggle="tooltip" data-bs-container="body" title="Cancelar">
             <i class="bi bi-x-circle"></i>
           </button>
         </div>
@@ -210,53 +145,24 @@
     <div class="modal-dialog">
       <form class="modal-content" id="formRecebimento">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="bi bi-box-seam"></i> Recebimento
-          </h5>
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Fechar"
-          ></button>
+          <h5 class="modal-title"><i class="bi bi-box-seam"></i> Recebimento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Data de Recebimento:</label>
-            <input
-              type="date"
-              class="form-control"
-              name="dataRecebimento"
-              required
-            />
+            <input type="date" class="form-control" name="dataRecebimento" required>
           </div>
           <div class="mb-3">
             <label class="form-label">Quantidade Recebida (KG):</label>
-            <input
-              type="number"
-              step="0.01"
-              class="form-control"
-              name="qtdRecebida"
-              required
-            />
+            <input type="number" step="0.01" class="form-control" name="qtdRecebida" required>
           </div>
         </div>
         <div class="modal-footer">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            data-bs-toggle="tooltip"
-            title="Confirmar"
-          >
+          <button type="submit" class="btn btn-primary" data-bs-toggle="tooltip" data-bs-container="body" title="Confirmar">
             <i class="bi bi-check-circle"></i>
           </button>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            data-bs-dismiss="modal"
-            data-bs-toggle="tooltip"
-            title="Cancelar"
-          >
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-bs-toggle="tooltip" data-bs-container="body" title="Cancelar">
             <i class="bi bi-x-circle"></i>
           </button>
         </div>
@@ -269,45 +175,20 @@
     <div class="modal-dialog">
       <form class="modal-content" id="formPericia">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="bi bi-question-octagon"></i> Perícia
-          </h5>
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Fechar"
-          ></button>
+          <h5 class="modal-title"><i class="bi bi-question-octagon"></i> Perícia</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
         </div>
         <div class="modal-body">
           <p>Os itens da OC estão em perfeito estado?</p>
         </div>
         <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-success"
-            id="btnPericiaOk"
-            data-bs-toggle="tooltip"
-            title="Sim, arrecadar"
-          >
+          <button type="button" class="btn btn-success" id="btnPericiaOk" data-bs-toggle="tooltip" data-bs-container="body" title="Sim, arrecadar">
             <i class="bi bi-check-circle"></i>
           </button>
-          <button
-            type="button"
-            class="btn btn-warning"
-            id="btnPericiaPendencia"
-            data-bs-toggle="tooltip"
-            title="Não, manter em pendência"
-          >
+          <button type="button" class="btn btn-warning" id="btnPericiaPendencia" data-bs-toggle="tooltip" data-bs-container="body" title="Não, manter em pendência">
             <i class="bi bi-exclamation-diamond"></i>
           </button>
-          <button
-            type="button"
-            class="btn btn-secondary"
-            data-bs-dismiss="modal"
-            data-bs-toggle="tooltip"
-            title="Cancelar"
-          >
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-bs-toggle="tooltip" data-bs-container="body" title="Cancelar">
             <i class="bi bi-x-circle"></i>
           </button>
         </div>
@@ -316,9 +197,7 @@
   </div>
 
   <!-- Bootstrap JS Bundle (with Popper) -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <!-- Custom JS -->
   <script src="po.js"></script>
 </body>
