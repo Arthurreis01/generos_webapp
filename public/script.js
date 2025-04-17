@@ -12,7 +12,7 @@ if (!firebase.apps.length) {
 }
 
 var licitacoes = [];           // Global array for licitações
-var licitacaoIdCounter = 1;     // Global counter
+var licitacaoIdCounter = 1;    // Global counter
 
 // ===== Global Helper Functions =====
 function parseNumber(str) {
@@ -201,10 +201,16 @@ document.addEventListener("DOMContentLoaded", async function() {
         const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
         const piIndex = headers.indexOf("PI");
         const dispIndex = headers.indexOf("QTDE_DISPONIVEL");
-        const compIndex = headers.indexOf("QTDE_COMPROMETIDA");
+        // Instead of relying on two specific names, iterate and find the header that contains "COMPROMET" in it.
+        let compIndex = -1;
+        headers.forEach((h, i) => {
+          if (h.toUpperCase().indexOf("COMPROMET") >= 0) {
+            compIndex = i;
+          }
+        });
   
         if (piIndex < 0 || dispIndex < 0 || compIndex < 0) {
-          alert("Colunas PI, QTDE_DISPONIVEL ou QTDE_COMPROMETIDA não encontradas.");
+          alert("As colunas necessárias (PI, QTDE_DISPONIVEL e uma coluna contendo 'COMPROMET') não foram encontradas.");
           hideImportLoadingModal();
           return;
         }
@@ -273,6 +279,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
+  // ----- Save New OC (Manual Addition) -----
   async function saveNovaOC() {
     const ocNumber = document.getElementById("novaOC_ocNumber").value.trim();
     const ocBalance = parseFloat(document.getElementById("novaOC_balance").value);
@@ -295,23 +302,27 @@ document.addEventListener("DOMContentLoaded", async function() {
   
     for (const lic of matchingLics) {
       if (!lic.ocs) lic.ocs = [];
+      // Create new OC with planned quantity in qtdeComprada.
+      // New OC is not marked as "arrecadado" until after pericia.
       const newOC = {
         codigo: ocNumber,
         qtdeComprada: ocBalance,
-        qtdeArrecadada: ocBalance,
+        qtdeArrecadada: 0,
         qtdePericia: 0,
         numeroProcesso: licitationNumber,
         itemSolicitado: itemSolicitado
       };
       lic.ocs.push(newOC);
+      
+      // Immediately update OC total and reduce licitação's balance.
+      lic.ocTotal = (lic.ocTotal || 0) + ocBalance;
       lic.balance = Math.max(0, (lic.balance || 0) - ocBalance);
-      lic.ocConsumed = (lic.ocConsumed || 0) + ocBalance;
   
       try {
         await db.collection("licitacoes").doc(lic.docId).update({
           ocs: lic.ocs,
-          balance: lic.balance,
-          ocConsumed: lic.ocConsumed
+          ocTotal: lic.ocTotal,
+          balance: lic.balance
         });
       } catch (err) {
         console.error("Erro ao atualizar licitação com novo OC:", err);
@@ -381,41 +392,48 @@ document.addEventListener("DOMContentLoaded", async function() {
     items.sort((a, b) => (a.itemSolicitado || "").localeCompare(b.itemSolicitado || ""));
   
     items.forEach((item) => {
-      const total = item.totalQuantity;
-      const used = item.ocConsumed;
-      const remaining = total - used;
       let usageHTML = "";
       if (item.licitations && item.licitations.length > 0) {
         usageHTML = item.licitations.map((lic) => {
           const usedLic = lic.ocConsumed || 0;
           const totalLic = lic.totalQuantity || 0;
-          const percent = totalLic > 0 ? Math.round((usedLic / totalLic) * 100) : 0;
-          let colorClass = "usage-green";
-          if (percent >= 80) colorClass = "usage-red";
-          else if (percent >= 50) colorClass = "usage-orange";
+          let ratioLic = 0;
+          if (totalLic > 0) ratioLic = (usedLic / totalLic) * 100;
+          if (ratioLic > 100) ratioLic = 100;
+          const percentLic = Math.round(ratioLic);
+          let colorClassLic = "usage-green";
+          if (percentLic >= 80) colorClassLic = "usage-red";
+          else if (percentLic >= 50) colorClassLic = "usage-orange";
           const restamInfoId = `restamInfo_${lic.id}`;
           return `
-            <div class="usage-row ${colorClass}" onclick="toggleLicDetail('${restamInfoId}', event)">
-              <span>${percent}% used</span>
+            <div class="usage-row ${colorClassLic}" onclick="toggleLicDetail('${restamInfoId}', event)">
+              <span>${percentLic}% usado</span>
               <span>Licitação ${lic.numeroProcesso}</span>
               <span>${formatDate(lic.vencimentoAta)}</span>
             </div>
             <div id="${restamInfoId}" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
-              Restam ${formatNumber(totalLic - usedLic)}KG de ${formatNumber(totalLic)}KG<br>
+              Restam ${formatNumber(totalLic - usedLic)} KG de ${formatNumber(totalLic)} KG<br>
               <button class="edit-lic-btn" onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar Licitação</button>
               <button class="delete-lic-btn" onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir Licitação</button>
             </div>
           `;
         }).join("");
       }
+  
       let autonomia = "N/A";
       if (item.cmm > 0) {
-        autonomia = item.balance / item.cmm;
+        autonomia = Math.round((item.balance / item.cmm) * 30);
       }
+
       const dispPlusComp = item.balance + item.comprometido;
       let autCob = "N/A";
+      let alertIcon = ""; // Default: no icon
       if (item.cmm > 0) {
-        autCob = dispPlusComp / item.cmm;
+        const days = Math.round((dispPlusComp / item.cmm) * 30);
+        autCob = days;
+        if (days < 30) {
+          alertIcon = "🚨"; // Or 🛑, 🔔, ⚠️ — whatever suits you
+        }
       }
       const card = document.createElement("div");
       card.className = "item-card fancy-card";
@@ -425,15 +443,17 @@ document.addEventListener("DOMContentLoaded", async function() {
       card.style.width = "300px";
       card.innerHTML = `
         <h2 class="item-name">${item.itemSolicitado || ""}</h2>
-        <div class="lic-usage-list">${usageHTML}</div>
+        <div class="lic-usage-list">
+          ${usageHTML}
+        </div>
         <div class="item-stats">
-          <p><strong>Autonomia:</strong> <span>${formatNumber(autonomia)} meses</span></p>
+          <p><strong>Autonomia:</strong> <span>${alertIcon}${(autonomia)} dias</span></p>
           <p><strong>CMM:</strong> <span>${formatNumber(item.cmm)}</span></p>
           <p><strong>Disp. p/lib:</strong> <span>${formatNumber(item.balance)} KG</span></p>
           <p><strong>Comprometido:</strong> <span>${formatNumber(item.comprometido)} KG</span></p>
           <p><strong>Disp. + comp.:</strong> <span>${formatNumber(dispPlusComp)} KG</span></p>
-          <p><strong>Aut. c/ cob.:</strong> <span>${formatNumber(autCob)} meses</span></p>
-          <p><strong>Em OC:</strong> <span>${formatNumber(item.ocConsumed)} KG</span></p>
+          <p><strong>Aut. c/ cob.:</strong> <span>${alertIcon}${(autCob)} dias</span></p>
+          <p><strong>Em OC:</strong> <span>${formatNumber(item.ocTotal)} KG</span></p>
         </div>
         <div class="card-actions">
           <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
@@ -547,7 +567,8 @@ document.addEventListener("DOMContentLoaded", async function() {
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
         totalQuantity: totalQty,
-        balance: 0,
+        // Initialize balance to totalQuantity if not provided
+        balance: totalQty,
         ocTotal: 0,
         ocConsumed: 0,
         comprometido: 0,
@@ -639,6 +660,10 @@ document.addEventListener("DOMContentLoaded", async function() {
         const licData = doc.data();
         licData.docId = doc.id;
         if (!licData.comentarios) licData.comentarios = [];
+        // If balance is not defined, initialize it as totalQuantity.
+        if (licData.balance === undefined || licData.balance === null) {
+          licData.balance = licData.totalQuantity || 0;
+        }
         licData.ocConsumed = licData.ocConsumed || 0;
         licData.comprometido = licData.comprometido || 0;
         licData.newCommentCount = licData.newCommentCount || 0;
@@ -670,52 +695,9 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   });
   
-  // ----- Profile Menu & Auth Logic (Attach here; remove duplicate inline code in HTML) -----
-  const profileButton = document.getElementById('profileButton');
-  const profileDropdown = document.getElementById('profileDropdown');
-  const resetPasswordLink = document.getElementById('resetPasswordLink');
-  const logoutLink = document.getElementById('logoutLink');
-
-  profileButton.addEventListener('click', (e) => {
-    e.stopPropagation();
-    profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
-  });
   
-  document.addEventListener('click', (e) => {
-    if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
-      profileDropdown.style.display = 'none';
-    }
-  });
-  
-  resetPasswordLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const user = firebase.auth().currentUser;
-    if (!user) {
-      alert("Nenhum usuário logado. Faça login primeiro.");
-      return;
-    }
-    try {
-      await firebase.auth().sendPasswordResetEmail(user.email);
-      alert("Email de redefinição de senha enviado para: " + user.email);
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao enviar redefinição de senha: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
-  
-  logoutLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      await firebase.auth().signOut();
-      window.location.href = "index.html";
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao fazer logout: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
 });
+
 // ===== Global Functions Accessible Outside DOMContentLoaded =====
 
 // Chat Functions
@@ -738,7 +720,7 @@ window.openComentariosByItem = function(pi) {
   }
   openModal(document.getElementById("modalComentarios"));
 };
-  
+
 window.deleteChatMessage = async function(pi, index) {
   const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (!group || group.length === 0) return;
@@ -771,12 +753,15 @@ window.verificarOCsByItem = function(pi) {
   let totalPericia = 0;
   group.forEach(lic => {
     totalOC += lic.ocTotal || 0;
-    totalArrecadado += lic.ocConsumed || 0;
+    // Recalculate arrecadado from each OC's qtdeArrecadada:
+    let localArrec = 0;
     if (lic.ocs && lic.ocs.length > 0) {
       lic.ocs.forEach(oc => {
+        localArrec += (oc.qtdeArrecadada || 0);
         totalPericia += (oc.qtdePericia || 0);
       });
     }
+    totalArrecadado += localArrec;
   });
   if (document.getElementById("ocTotalValue"))
     document.getElementById("ocTotalValue").textContent = formatNumber(totalOC) + " KG";
@@ -821,15 +806,15 @@ window.verificarOCsByItem = function(pi) {
   });
   openModal(document.getElementById("modalVerificarOCs"));
 };
-  
+
 window.deleteOC = async function(pi, codigo) {
   const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (matchingLics.length === 0) return;
   for (const lic of matchingLics) {
     if (lic.ocs) {
       lic.ocs = lic.ocs.filter(oc => oc.codigo !== codigo);
-      lic.ocTotal = lic.ocs.reduce((acc, oc) => acc + oc.qtdeComprada, 0);
-      lic.ocConsumed = lic.ocs.reduce((acc, oc) => acc + oc.qtdeArrecadada, 0);
+      lic.ocTotal = lic.ocs.reduce((acc, oc) => acc + (oc.qtdeComprada || 0), 0);
+      lic.ocConsumed = lic.ocs.reduce((acc, oc) => acc + (oc.qtdeArrecadada || 0), 0);
       try {
         await firebase.firestore().collection("licitacoes").doc(lic.docId).update({
           ocs: lic.ocs,
@@ -845,8 +830,66 @@ window.deleteOC = async function(pi, codigo) {
   verificarOCsByItem(pi);
 };
 
-/* ---------- Profile Menu & Auth Logic ---------- */
-// (Make sure to remove any duplicate inline script blocks in your HTML that declare these variables.)
+// ---------- New Functions for OC Integration ----------
+
+// When the receiving process is done, add the received quantity to the OC's qtdePericia.
+async function updateOCForRecebimento(pi, ocCode, quantidade) {
+  try {
+    const licQuery = await db.collection("licitacoes").where("pi", "==", pi).get();
+    licQuery.forEach(async (doc) => {
+      let lic = doc.data();
+      let updated = false;
+      if (lic.ocs && lic.ocs.length > 0) {
+        lic.ocs = lic.ocs.map(oc => {
+          if (oc.codigo === ocCode) {
+            oc.qtdePericia = (oc.qtdePericia || 0) + quantidade;
+            updated = true;
+          }
+          return oc;
+        });
+      }
+      if (updated) {
+        await db.collection("licitacoes").doc(doc.id).update({
+          ocs: lic.ocs
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Erro ao atualizar OC para recebimento:", err);
+  }
+}
+
+// When the pericia process is confirmed, move the quantity from qtdePericia to qtdeArrecadada and update ocConsumed.
+async function updateOCForPericia(pi, ocCode, quantidade) {
+  try {
+    const licQuery = await db.collection("licitacoes").where("pi", "==", pi).get();
+    licQuery.forEach(async (doc) => {
+      let lic = doc.data();
+      let updated = false;
+      if (lic.ocs && lic.ocs.length > 0) {
+        lic.ocs = lic.ocs.map(oc => {
+          if (oc.codigo === ocCode) {
+            oc.qtdePericia = Math.max(0, (oc.qtdePericia || 0) - quantidade);
+            oc.qtdeArrecadada = (oc.qtdeArrecadada || 0) + quantidade;
+            updated = true;
+          }
+          return oc;
+        });
+      }
+      if (updated) {
+        const newConsumed = lic.ocs.reduce((acc, oc) => acc + (oc.qtdeArrecadada || 0), 0);
+        await firebase.firestore().collection("licitacoes").doc(doc.id).update({
+          ocs: lic.ocs,
+          ocConsumed: newConsumed
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Erro ao atualizar OC para pericia:", err);
+  }
+}
+
+// ----- Profile Menu & Auth Logic -----
 const profileButton = document.getElementById('profileButton');
 const profileDropdown = document.getElementById('profileDropdown');
 const resetPasswordLink = document.getElementById('resetPasswordLink');
@@ -890,10 +933,4 @@ logoutLink.addEventListener('click', async (e) => {
     alert("Erro ao fazer logout: " + error.message);
   }
   profileDropdown.style.display = 'none';
-});
-
-firebase.auth().onAuthStateChanged((user) => {
-  if (!user) {
-    window.location.href = "index.html";
-  }
 });
