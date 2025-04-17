@@ -59,6 +59,20 @@ function openModal(modalElem) {
   }
 }
 
+// Render status badge with color
+function renderStatusBadge(status) {
+  if (status === "Pendente") {
+    return '<span class="badge bg-warning text-dark">Pendente</span>';
+  } else if (status === "Arrecadado") {
+    return '<span class="badge bg-success">Arrecadado</span>';
+  } else if (status === "Em pericia") {
+    return '<span class="badge bg-info text-dark">Em perícia</span>';
+  } else {
+    return '<span class="badge bg-secondary">' + status + '</span>';
+  }
+}
+
+
 /* ============================
    Open “Adicionar Agendamento”
 ============================ */
@@ -78,7 +92,6 @@ async function loadOcList() {
       const lic = doc.data();
       if (lic.ocs && lic.ocs.length > 0) {
         lic.ocs.forEach(oc => {
-          // Incluímos itemSolicitado, número do PI e outros campos
           ocListData.push({
             licDocId: doc.id,
             oc: oc.codigo,
@@ -144,47 +157,46 @@ function renderAgendamentos() {
   tbody.innerHTML = "";
 
   agendamentos.forEach((ag) => {
-    // Botões de ações organizados da esquerda para a direita:
-    // 1) Editar, 2) Excluir, 3) Recebimento (se Pendente), 4) Perícia (se Arrecadado)
+    // Botões de ações: 1) Editar, 2) Excluir, 3) Recebimento (se Pendente), 4) Perícia (se Arrecadado e sem dataPericia)
     let actionButtons = `
-      <button class="btn btn-sm btn-secondary me-1" data-bs-toggle="tooltip" title="Editar" onclick="toggleEditRow('${ag.docId}', this)">
+      <button class="btn btn-sm btn-secondary me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Editar" onclick="toggleEditRow('${ag.docId}', this)">
         <i class="bi bi-pencil-square"></i>
       </button>
-      <button class="btn btn-sm btn-danger me-1" data-bs-toggle="tooltip" title="Excluir" onclick="deleteAgendamento('${ag.docId}')">
+      <button class="btn btn-sm btn-danger me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Excluir" onclick="deleteAgendamento('${ag.docId}')">
         <i class="bi bi-trash"></i>
       </button>
     `;
     if (ag.status === "Pendente") {
       actionButtons += `
-        <button class="btn btn-sm btn-primary me-1" data-bs-toggle="tooltip" title="Recebimento" onclick="openRecebimentoModal('${ag.docId}')">
+        <button class="btn btn-sm btn-primary me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Recebimento" onclick="openRecebimentoModal('${ag.docId}')">
           <i class="bi bi-box-seam"></i>
         </button>
       `;
-    } else if (ag.status === "Arrecadado") {
+    } else if (ag.status === "Arrecadado" && !ag.dataPericia) {
       actionButtons += `
-        <button class="btn btn-sm btn-warning me-1" data-bs-toggle="tooltip" title="Perícia" onclick="openPericiaModal('${ag.docId}')">
+        <button class="btn btn-sm btn-warning me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Perícia" onclick="openPericiaModal('${ag.docId}')">
           <i class="bi bi-question-octagon"></i>
         </button>
       `;
     }
 
     const tr = document.createElement("tr");
-    const dateCellContent = formatDateWithAlert(ag.dataPrevista);
     tr.innerHTML = `
-      <td>${dateCellContent}</td>
+      <td>${formatDateWithAlert(ag.dataPrevista)}</td>
       <td contenteditable="false" data-field="itemSolicitado">${ag.itemSolicitado || ""}</td>
       <td contenteditable="false" data-field="qtd">${parseNumberBR(ag.qtd)}</td>
       <td contenteditable="false" data-field="oc">${ag.oc || ""}</td>
       <td contenteditable="false" data-field="fornecedor">${ag.fornecedor || ""}</td>
       <td contenteditable="false" data-field="notaFiscal">${ag.notaFiscal || ""}</td>
       <td contenteditable="false" data-field="obs">${ag.obs || ""}</td>
-      <td contenteditable="false" data-field="status">${ag.status || "Pendente"}</td>
+      <td contenteditable="false" data-field="status">${renderStatusBadge(ag.status)}</td>
       <td>${ag.dataRecebimento ? formatDateBR(ag.dataRecebimento) : ""}</td>
       <td>${ag.dataPericia ? formatDateBR(ag.dataPericia) : ""}</td>
       <td class="text-center">${actionButtons}</td>
     `;
     tbody.appendChild(tr);
   });
+
   // Reativa os tooltips
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
@@ -267,7 +279,6 @@ async function saveRowChanges(poId, tr) {
     agendamentos = agendamentos.map(ag => ag.docId === poId ? { ...ag, ...updateObj } : ag);
     alert("Registro atualizado com sucesso!");
     // ----- CHAMADA DE INTEGRAÇÃO -----
-    // Após atualizar o agendamento, verifica o painel OC, passando o PI da OC
     const updatedAg = agendamentos.find(ag => ag.docId === poId);
     if (updatedAg && updatedAg.pi && typeof window.verificarOCsByItem === "function") {
       window.verificarOCsByItem(updatedAg.pi);
@@ -291,7 +302,6 @@ document.getElementById("formAgendamento").addEventListener("submit", async func
     return;
   }
   const ocData = JSON.parse(ocVal);
-  // Incluímos a propriedade 'pi' vinda do objeto OC
   const newAg = {
     dataPrevista: fd.get("dataPrevista"),
     qtd: parseFloat(fd.get("qtd")) || 0,
@@ -301,7 +311,7 @@ document.getElementById("formAgendamento").addEventListener("submit", async func
     status: "Pendente",
     oc: ocData.oc,
     itemSolicitado: ocData.itemSolicitado || "",
-    pi: ocData.pi  // novo campo para integrar com o dashboard
+    pi: ocData.pi
   };
   try {
     const docRef = await db.collection("pos").add(newAg);
@@ -310,7 +320,6 @@ document.getElementById("formAgendamento").addEventListener("submit", async func
     renderAgendamentos();
     e.target.reset();
     bootstrap.Modal.getInstance(document.getElementById("addModal")).hide();
-    // Se necessário, atualizar o painel OC chamando a função do script.js:
     if (newAg.pi && typeof window.verificarOCsByItem === "function") {
       window.verificarOCsByItem(newAg.pi);
     }
@@ -351,10 +360,13 @@ document.getElementById("formRecebimento").addEventListener("submit", async func
       ag.docId === selectedAgendamento ? { ...ag, ...updateObj } : ag
     );
     renderAgendamentos();
-    // ----- CHAMADA DE INTEGRAÇÃO: RECEBIMENTO => PERÍCIA -----
     const updatedAg = agendamentos.find(ag => ag.docId === selectedAgendamento);
-    if (updatedAg && updatedAg.pi && typeof window.verificarOCsByItem === "function") {
-      window.verificarOCsByItem(updatedAg.pi);
+    // Integration: update corresponding OC for RECEBIMENTO by adding the received quantity to qtdePericia.
+    if (updatedAg && updatedAg.pi) {
+      await updateOCForRecebimento(updatedAg.pi, updatedAg.oc, qtdRecebida);
+      if (typeof window.verificarOCsByItem === "function") {
+        window.verificarOCsByItem(updatedAg.pi);
+      }
     }
     selectedAgendamento = null;
     bootstrap.Modal.getInstance(document.getElementById("recebimentoModal")).hide();
@@ -372,7 +384,6 @@ function openPericiaModal(docId) {
   openModal(document.getElementById("periciaModal"));
 }
 
-// "Sim, arrecadar" => status = "Arrecadado"
 document.getElementById("btnPericiaOk").addEventListener("click", async function() {
   if (!selectedAgendamento) return;
   const now = new Date().toISOString().split("T")[0];
@@ -383,10 +394,14 @@ document.getElementById("btnPericiaOk").addEventListener("click", async function
       ag.docId === selectedAgendamento ? { ...ag, ...updateObj } : ag
     );
     renderAgendamentos();
-    // ----- INTEGRAÇÃO: Atualiza painel OC com valor arrecadado -----
     const updatedAg = agendamentos.find(ag => ag.docId === selectedAgendamento);
-    if (updatedAg && updatedAg.pi && typeof window.verificarOCsByItem === "function") {
-      window.verificarOCsByItem(updatedAg.pi);
+    // Integration: move the received quantity from Pericia to Arrecadado.
+    const quantidade = updatedAg.qtdRecebida || 0;
+    if (updatedAg && updatedAg.pi) {
+      await updateOCForPericia(updatedAg.pi, updatedAg.oc, quantidade);
+      if (typeof window.verificarOCsByItem === "function") {
+        window.verificarOCsByItem(updatedAg.pi);
+      }
     }
     selectedAgendamento = null;
     bootstrap.Modal.getInstance(document.getElementById("periciaModal")).hide();
@@ -396,7 +411,6 @@ document.getElementById("btnPericiaOk").addEventListener("click", async function
   }
 });
 
-// "Não, manter em pendência" => status = "Pendente"
 document.getElementById("btnPericiaPendencia").addEventListener("click", async function() {
   if (!selectedAgendamento) return;
   const now = new Date().toISOString().split("T")[0];
@@ -407,7 +421,6 @@ document.getElementById("btnPericiaPendencia").addEventListener("click", async f
       ag.docId === selectedAgendamento ? { ...ag, ...updateObj } : ag
     );
     renderAgendamentos();
-    // ----- INTEGRAÇÃO: Atualiza painel OC ao manter pendência -----
     const updatedAg = agendamentos.find(ag => ag.docId === selectedAgendamento);
     if (updatedAg && updatedAg.pi && typeof window.verificarOCsByItem === "function") {
       window.verificarOCsByItem(updatedAg.pi);
@@ -449,22 +462,22 @@ function applyTableFilter() {
   tbody.innerHTML = "";
   filtered.forEach(ag => {
     let actionButtons = `
-      <button class="btn btn-sm btn-secondary me-1" data-bs-toggle="tooltip" title="Editar" onclick="toggleEditRow('${ag.docId}', this)">
+      <button class="btn btn-sm btn-secondary me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Editar" onclick="toggleEditRow('${ag.docId}', this)">
         <i class="bi bi-pencil-square"></i>
       </button>
-      <button class="btn btn-sm btn-danger me-1" data-bs-toggle="tooltip" title="Excluir" onclick="deleteAgendamento('${ag.docId}')">
+      <button class="btn btn-sm btn-danger me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Excluir" onclick="deleteAgendamento('${ag.docId}')">
         <i class="bi bi-trash"></i>
       </button>
     `;
     if (ag.status === "Pendente") {
       actionButtons += `
-        <button class="btn btn-sm btn-primary me-1" data-bs-toggle="tooltip" title="Recebimento" onclick="openRecebimentoModal('${ag.docId}')">
+        <button class="btn btn-sm btn-primary me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Recebimento" onclick="openRecebimentoModal('${ag.docId}')">
           <i class="bi bi-box-seam"></i>
         </button>
       `;
-    } else if (ag.status === "Arrecadado") {
+    } else if (ag.status === "Arrecadado" && !ag.dataPericia) {
       actionButtons += `
-        <button class="btn btn-sm btn-warning me-1" data-bs-toggle="tooltip" title="Perícia" onclick="openPericiaModal('${ag.docId}')">
+        <button class="btn btn-sm btn-warning me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Perícia" onclick="openPericiaModal('${ag.docId}')">
           <i class="bi bi-question-octagon"></i>
         </button>
       `;
@@ -479,13 +492,14 @@ function applyTableFilter() {
       <td contenteditable="false" data-field="fornecedor">${ag.fornecedor || ""}</td>
       <td contenteditable="false" data-field="notaFiscal">${ag.notaFiscal || ""}</td>
       <td contenteditable="false" data-field="obs">${ag.obs || ""}</td>
-      <td contenteditable="false" data-field="status">${ag.status || "Pendente"}</td>
+      <td contenteditable="false" data-field="status">${renderStatusBadge(ag.status)}</td>
       <td>${ag.dataRecebimento ? formatDateBR(ag.dataRecebimento) : ""}</td>
       <td>${ag.dataPericia ? formatDateBR(ag.dataPericia) : ""}</td>
       <td class="text-center">${actionButtons}</td>
     `;
     tbody.appendChild(tr);
   });
+  
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
 }
@@ -497,3 +511,60 @@ document.addEventListener("DOMContentLoaded", function() {
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
 });
+
+/* ---------- New Functions for OC Integration ---------- */
+
+// When the receiving process is done, add the received quantity to the OC's qtdePericia.
+async function updateOCForRecebimento(pi, ocCode, quantidade) {
+  try {
+    const licQuery = await db.collection("licitacoes").where("pi", "==", pi).get();
+    licQuery.forEach(async (doc) => {
+      let lic = doc.data();
+      let updated = false;
+      if (lic.ocs && lic.ocs.length > 0) {
+        lic.ocs = lic.ocs.map(oc => {
+          if (oc.codigo === ocCode) {
+            oc.qtdePericia = (oc.qtdePericia || 0) + quantidade;
+            updated = true;
+          }
+          return oc;
+        });
+      }
+      if (updated) {
+        await db.collection("licitacoes").doc(doc.id).update({
+          ocs: lic.ocs
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Erro ao atualizar OC para recebimento:", err);
+  }
+}
+
+// When the pericia process is confirmed, move the quantity from qtdePericia to qtdeArrecadada.
+async function updateOCForPericia(pi, ocCode, quantidade) {
+  try {
+    const licQuery = await db.collection("licitacoes").where("pi", "==", pi).get();
+    licQuery.forEach(async (doc) => {
+      let lic = doc.data();
+      let updated = false;
+      if (lic.ocs && lic.ocs.length > 0) {
+        lic.ocs = lic.ocs.map(oc => {
+          if (oc.codigo === ocCode) {
+            oc.qtdePericia = Math.max(0, (oc.qtdePericia || 0) - quantidade);
+            oc.qtdeArrecadada = (oc.qtdeArrecadada || 0) + quantidade;
+            updated = true;
+          }
+          return oc;
+        });
+      }
+      if (updated) {
+        await db.collection("licitacoes").doc(doc.id).update({
+          ocs: lic.ocs
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Erro ao atualizar OC para pericia:", err);
+  }
+}
