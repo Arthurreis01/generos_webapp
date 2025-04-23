@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login • CSUPAB</title>
+  <link rel="stylesheet" href="agendamento.css" />
+
+  <!-- Firebase SDKs (in this exact order!) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+</head>
+<body>
+  <div class="card-container">
+    <div class="panel image-panel"></div>
+    <div class="panel form-panel">
+      <h2>Controle de gêneros</h2>
+      <p>Bem-vindo à plataforma de suprimentos. Faça login ou cadastre-se para continuar.</p>
+      <form id="loginForm" class="form">
+        <input type="email" id="email" placeholder="E-mail" required />
+        <input type="password" id="password" placeholder="Senha" required />
+        <div class="button-row">
+          <button type="submit" class="btn primary">Entrar</button>
+          <a href="cadastro.html" class="btn secondary">Cadastrar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Now your code that calls firebase.firestore() -->
+  <script src="agendamento.js"></script>
+</body>
+</html>

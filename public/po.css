@@ -8,6 +8,8 @@ html, body {
   width: 100%;
   height: 100%;
 }
+
+/* Fonte mais clean e moderna */
 body {
   background: #f7f9fc;
   color: #444;
@@ -32,6 +34,7 @@ body {
   margin-top: 20px;
   max-height: 100vh;
 }
+
 h2 {
   font-weight: 500;
   color: #222;
@@ -52,6 +55,7 @@ h2 {
 }
 
 /* ============ Table ============ */
+
 .table-hover tbody tr:hover {
   background-color: #f1f3f5;
 }
@@ -71,8 +75,6 @@ h2 {
 #agendaTable td, #agendaTable th {
   vertical-align: middle;
   white-space: nowrap;
-  max-width: 150px;
-  overflow-x: auto;
 }
 
 /* ============ Ações centralizadas ============ */
@@ -90,4 +92,17 @@ h2 {
 /* ============ Tooltip Transition ============ */
 .btn[data-bs-toggle="tooltip"] {
   position: relative;
+}
+
+/* OBS Modal specific styling */
+#obsModal .modal-dialog {
+  max-width: 600px;       /* adjust width as needed */
+}
+
+#obsModal .modal-body {
+  max-height: 250px;      /* limits height */
+  overflow-y: auto;       /* makes it scrollable when content is long */
+  padding: 1rem;          
+  white-space: pre-wrap;  /* preserves line breaks */
+  word-break: break-word; /* wraps long words */
 }

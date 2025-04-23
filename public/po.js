@@ -18,8 +18,8 @@ const db = firebase.firestore();
 /* ============================
    Global Variables
 ============================ */
-let agendamentos = [];        
-let ocListData = [];          
+let agendamentos = [];
+let ocListData = [];
 let selectedAgendamento = null;
 
 /* ============================
@@ -65,6 +65,8 @@ function renderStatusBadge(status) {
     return '<span class="badge bg-warning text-dark">Pendente</span>';
   } else if (status === "Arrecadado") {
     return '<span class="badge bg-success">Arrecadado</span>';
+  } else if (status === "Em pericia") {
+    return '<span class="badge bg-info text-dark">Em perícia</span>';
   } else {
     return '<span class="badge bg-secondary">' + status + '</span>';
   }
@@ -110,16 +112,19 @@ function filterOcOptions() {
   const select = document.getElementById("selectOC");
   select.innerHTML = "";
   let matches = 0;
+
   ocListData.forEach(obj => {
     const searchStr = `oc ${obj.oc} pi ${obj.pi} ${obj.itemSolicitado}`.toLowerCase();
     if (!searchInput || searchStr.includes(searchInput)) {
       const option = document.createElement("option");
       option.value = JSON.stringify(obj);
-      option.textContent = `OC ${obj.oc} - PI ${obj.pi}`;
+      // Agora exibimos também o nome do itemSolicitado
+      option.textContent = `OC ${obj.oc} – PI ${obj.pi} – ${obj.itemSolicitado}`;
       select.appendChild(option);
       matches++;
     }
   });
+
   if (matches === 0) {
     const noMatch = document.createElement("option");
     noMatch.value = "";
@@ -127,6 +132,7 @@ function filterOcOptions() {
     select.appendChild(noMatch);
   }
 }
+
 
 /* ============================
    Load & Render Agendamentos
@@ -146,57 +152,77 @@ async function loadAgendamentos() {
   }
 }
 
-function renderAgendamentos() {
-  // Ordena por dataPrevista (mais recente primeiro)
-  agendamentos.sort((a, b) => new Date(b.dataPrevista) - new Date(a.dataPrevista));
+// Show full OBS in modal
+function showObs(docId) {
+  const ag = agendamentos.find(a => a.docId === docId);
+  if (!ag) return;
+  document.getElementById('obsModalBody').textContent = ag.obs || '(sem observação)';
+  openModal(document.getElementById('obsModal'));
+}
 
+function renderAgendamentos() {
+  agendamentos.sort((a, b) => new Date(b.dataPrevista) - new Date(a.dataPrevista));
   const tbody = document.getElementById("agendaTbody");
   tbody.innerHTML = "";
 
-  agendamentos.forEach((ag) => {
-    // Botões de ações: 1) Editar, 2) Excluir, 3) Recebimento (se Pendente), 4) Perícia (se Arrecadado e sem dataPericia)
+  agendamentos.forEach(ag => {
     let actionButtons = `
-      <button class="btn btn-sm btn-secondary me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Editar" onclick="toggleEditRow('${ag.docId}', this)">
+      <button class="btn btn-sm btn-secondary me-1" 
+              data-bs-toggle="tooltip" title="Editar"
+              onclick="toggleEditRow('${ag.docId}', this)">
         <i class="bi bi-pencil-square"></i>
       </button>
-      <button class="btn btn-sm btn-danger me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Excluir" onclick="deleteAgendamento('${ag.docId}')">
+      <button class="btn btn-sm btn-danger me-1" 
+              data-bs-toggle="tooltip" title="Excluir"
+              onclick="deleteAgendamento('${ag.docId}')">
         <i class="bi bi-trash"></i>
       </button>
     `;
     if (ag.status === "Pendente") {
       actionButtons += `
-        <button class="btn btn-sm btn-primary me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Recebimento" onclick="openRecebimentoModal('${ag.docId}')">
+        <button class="btn btn-sm btn-primary me-1" title="Recebimento"
+                onclick="openRecebimentoModal('${ag.docId}')">
           <i class="bi bi-box-seam"></i>
-        </button>
-      `;
-    } else if (ag.status === "Arrecadado" && !ag.dataPericia) {
+        </button>`;
+    } else if (ag.status === "Em pericia") {
       actionButtons += `
-        <button class="btn btn-sm btn-warning me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Perícia" onclick="openPericiaModal('${ag.docId}')">
+        <button class="btn btn-sm btn-warning me-1" title="Perícia"
+                onclick="openPericiaModal('${ag.docId}')">
           <i class="bi bi-question-octagon"></i>
-        </button>
-      `;
+        </button>`;
     }
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${formatDateWithAlert(ag.dataPrevista)}</td>
-      <td contenteditable="false" data-field="itemSolicitado">${ag.itemSolicitado || ""}</td>
+      <td contenteditable="false" data-field="itemSolicitado">${ag.itemSolicitado}</td>
       <td contenteditable="false" data-field="qtd">${parseNumberBR(ag.qtd)}</td>
-      <td contenteditable="false" data-field="oc">${ag.oc || ""}</td>
-      <td contenteditable="false" data-field="fornecedor">${ag.fornecedor || ""}</td>
-      <td contenteditable="false" data-field="notaFiscal">${ag.notaFiscal || ""}</td>
-      <td contenteditable="false" data-field="obs">${ag.obs || ""}</td>
+      <td contenteditable="false" data-field="oc">${ag.oc}</td>
+      <td contenteditable="false" data-field="fornecedor">${ag.fornecedor}</td>
+      <td contenteditable="false" data-field="notaFiscal">${ag.notaFiscal}</td>
+      <td>
+        <span class="text-truncate" style="max-width:200px; display:inline-block; cursor:pointer;"
+              title="Clique para ver tudo"
+              onclick="showObs('${ag.docId}')">
+          ${ag.obs || ''}
+        </span>
+      </td>
+      <!-- agora editáveis diretamente -->
+      <td contenteditable="false" data-field="dataRecebimento">
+        ${ag.dataRecebimento ? formatDateBR(ag.dataRecebimento) : ''}
+      </td>
+      <td contenteditable="false" data-field="dataPericia">
+        ${ag.dataPericia ? formatDateBR(ag.dataPericia) : ''}
+      </td>
       <td contenteditable="false" data-field="status">${renderStatusBadge(ag.status)}</td>
-      <td>${ag.dataRecebimento ? formatDateBR(ag.dataRecebimento) : ""}</td>
-      <td>${ag.dataPericia ? formatDateBR(ag.dataPericia) : ""}</td>
       <td class="text-center">${actionButtons}</td>
     `;
     tbody.appendChild(tr);
   });
 
-  // Reativa os tooltips
-  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-  tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
+  // reativa tooltips...
+  document.querySelectorAll('[data-bs-toggle="tooltip"]')
+          .forEach(el => new bootstrap.Tooltip(el));
 }
 
 /**
@@ -218,26 +244,25 @@ async function deleteAgendamento(docId) {
 /**
  * Alterna o modo de edição de uma linha.
  */
+// Toggle edit / confirm
 function toggleEditRow(poId, btn) {
   const tr = btn.closest("tr");
   const isEditing = tr.classList.contains("editing");
-  
+
   if (!isEditing) {
     tr.classList.add("editing");
+    btn.classList.replace('btn-secondary','btn-success');
     btn.innerHTML = '<i class="bi bi-check-circle"></i>';
-    btn.setAttribute("title", "Confirmar");
-    btn.setAttribute("data-bs-original-title", "Confirmar");
-    tr.querySelectorAll("[contenteditable]").forEach(cell => {
+    tr.querySelectorAll('[contenteditable]').forEach(cell => {
       cell.contentEditable = "true";
       cell.classList.add("editable");
     });
   } else {
     if (!confirm("Deseja salvar as alterações deste registro?")) {
       tr.classList.remove("editing");
+      btn.classList.replace('btn-success','btn-secondary');
       btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
-      btn.setAttribute("title", "Editar");
-      btn.setAttribute("data-bs-original-title", "Editar");
-      tr.querySelectorAll("[contenteditable]").forEach(cell => {
+      tr.querySelectorAll('[contenteditable]').forEach(cell => {
         cell.contentEditable = "false";
         cell.classList.remove("editable");
       });
@@ -246,10 +271,9 @@ function toggleEditRow(poId, btn) {
     }
     saveRowChanges(poId, tr);
     tr.classList.remove("editing");
+    btn.classList.replace('btn-success','btn-secondary');
     btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
-    btn.setAttribute("title", "Editar");
-    btn.setAttribute("data-bs-original-title", "Editar");
-    tr.querySelectorAll("[contenteditable]").forEach(cell => {
+    tr.querySelectorAll('[contenteditable]').forEach(cell => {
       cell.contentEditable = "false";
       cell.classList.remove("editable");
     });
@@ -260,28 +284,25 @@ function toggleEditRow(poId, btn) {
  * Salva as alterações de edição no Firestore e atualiza o painel OC.
  */
 async function saveRowChanges(poId, tr) {
-  let updateObj = {};
-  tr.querySelectorAll("[contenteditable]").forEach(cell => {
+  const updateObj = {};
+  tr.querySelectorAll('[contenteditable]').forEach(cell => {
     const field = cell.getAttribute("data-field");
     if (!field) return;
+    let val = cell.textContent.trim();
     if (field === "qtd") {
-      updateObj[field] = parseFloat(cell.textContent.replace(/\./g, "").replace(",", ".")) || 0;
-    } else {
-      updateObj[field] = cell.textContent.trim();
+      val = parseFloat(val.replace(/\./g, "").replace(",", ".")) || 0;
     }
+    updateObj[field] = val;
   });
-  
+
   try {
     await db.collection("pos").doc(poId).update(updateObj);
-    agendamentos = agendamentos.map(ag => ag.docId === poId ? { ...ag, ...updateObj } : ag);
+    agendamentos = agendamentos.map(ag =>
+      ag.docId === poId ? { ...ag, ...updateObj } : ag
+    );
     alert("Registro atualizado com sucesso!");
-    // ----- CHAMADA DE INTEGRAÇÃO -----
-    const updatedAg = agendamentos.find(ag => ag.docId === poId);
-    if (updatedAg && updatedAg.pi && typeof window.verificarOCsByItem === "function") {
-      window.verificarOCsByItem(updatedAg.pi);
-    }
   } catch (err) {
-    console.error("Erro ao salvar alterações:", err);
+    console.error(err);
     alert("Erro ao salvar alterações.");
   }
   renderAgendamentos();
@@ -345,10 +366,10 @@ document.getElementById("formRecebimento").addEventListener("submit", async func
     alert("Preencha a data de recebimento.");
     return;
   }
+  // Agora passamos para a fase 2: "Em pericia"
   const updateObj = {
-    status: "Arrecadado",
+    status: "Em pericia",
     dataRecebimento,
-    qtd: qtdRecebida,
     qtdRecebida
   };
   try {
@@ -358,7 +379,7 @@ document.getElementById("formRecebimento").addEventListener("submit", async func
     );
     renderAgendamentos();
     const updatedAg = agendamentos.find(ag => ag.docId === selectedAgendamento);
-    // Integration: update corresponding OC for RECEBIMENTO by adding the received quantity to qtdePericia.
+    // Integração: adiciona a quantidade recebida em qtdePericia
     if (updatedAg && updatedAg.pi) {
       await updateOCForRecebimento(updatedAg.pi, updatedAg.oc, qtdRecebida);
       if (typeof window.verificarOCsByItem === "function") {
@@ -392,7 +413,6 @@ document.getElementById("btnPericiaOk").addEventListener("click", async function
     );
     renderAgendamentos();
     const updatedAg = agendamentos.find(ag => ag.docId === selectedAgendamento);
-    // Integration: move the received quantity from Pericia to Arrecadado.
     const quantidade = updatedAg.qtdRecebida || 0;
     if (updatedAg && updatedAg.pi) {
       await updateOCForPericia(updatedAg.pi, updatedAg.oc, quantidade);
@@ -440,11 +460,11 @@ function applyTableFilter() {
   
   const filtered = agendamentos.filter(ag => {
     const haystack = `
-      ${ag.dataPrevista} 
-      ${ag.itemSolicitado} 
-      ${ag.oc} 
-      ${ag.fornecedor} 
-      ${ag.notaFiscal} 
+      ${ag.dataPrevista}
+      ${ag.itemSolicitado}
+      ${ag.oc}
+      ${ag.fornecedor}
+      ${ag.notaFiscal}
       ${ag.obs}
     `.toLowerCase();
     if (searchVal && !haystack.includes(searchVal)) return false;
@@ -472,14 +492,14 @@ function applyTableFilter() {
           <i class="bi bi-box-seam"></i>
         </button>
       `;
-    } else if (ag.status === "Arrecadado" && !ag.dataPericia) {
+    } else if (ag.status === "Em pericia") {
       actionButtons += `
         <button class="btn btn-sm btn-warning me-1" data-bs-toggle="tooltip" data-bs-container="body" title="Perícia" onclick="openPericiaModal('${ag.docId}')">
           <i class="bi bi-question-octagon"></i>
         </button>
       `;
     }
-  
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${formatDateWithAlert(ag.dataPrevista)}</td>
@@ -500,6 +520,7 @@ function applyTableFilter() {
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
 }
+
 
 // Carrega os dados iniciais quando o DOM estiver pronto.
 document.addEventListener("DOMContentLoaded", function() {
@@ -538,7 +559,7 @@ async function updateOCForRecebimento(pi, ocCode, quantidade) {
   }
 }
 
-// When the pericia process is confirmed, move the quantity from qtdePericia to qtdeArrecadada.
+// When the perícia process is confirmed, move the quantity from qtdePericia to qtdeArrecadada.
 async function updateOCForPericia(pi, ocCode, quantidade) {
   try {
     const licQuery = await db.collection("licitacoes").where("pi", "==", pi).get();
@@ -562,6 +583,6 @@ async function updateOCForPericia(pi, ocCode, quantidade) {
       }
     });
   } catch (err) {
-    console.error("Erro ao atualizar OC para pericia:", err);
+    console.error("Erro ao atualizar OC para perícia:", err);
   }
 }

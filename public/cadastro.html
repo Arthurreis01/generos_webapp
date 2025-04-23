@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cadastro • CSUPAB</title>
+  <link rel="stylesheet" href="agendamento.css" />
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+<body>
+  <div class="card-container">
+    <div class="panel image-panel"></div>
+    <div class="panel form-panel">
+      <h2>Criar Conta</h2>
+      <p>Preencha seus dados para criar uma nova conta de acesso.</p>
+      <form id="registerForm" class="form">
+        <input type="email" id="registerEmail" placeholder="E-mail" required />
+        <input type="password" id="registerPassword" placeholder="Senha (mín. 6 caracteres)" required minlength="6" />
+        <div class="button-row">
+          <button type="submit" class="btn primary">Cadastrar</button>
+          <a href="agendamento.html" class="btn secondary">Voltar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // 1) Firebase init
+    firebase.initializeApp({
+      apiKey: "AIzaSyD80JCME8g97PD1fMu2xQWD6DRJp5bMFSg",
+      authDomain: "generos-webapp.firebaseapp.com",
+      projectId: "generos-webapp",
+      storageBucket: "generos-webapp.appspot.com",
+      messagingSenderId: "874489491002",
+      appId: "1:874489491002:web:46f893c170bbd944cb8f03"
+    });
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+
+    // 2) Handle registration
+    document.getElementById('registerForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const email = e.target.registerEmail.value;
+      const pass  = e.target.registerPassword.value;
+      try {
+        // Create Auth user
+        const { user } = await auth.createUserWithEmailAndPassword(email, pass);
+        // Create Firestore user doc, default approved=false
+        await db.collection('users').doc(user.uid).set({
+          email,
+          approved: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert('Conta criada! Aguarde aprovação antes de efetuar login.');
+        window.location.href = 'agendamento.html';
+      } catch(err) {
+        alert('Erro ao cadastrar: ' + err.message);
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

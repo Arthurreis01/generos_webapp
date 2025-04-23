@@ -201,10 +201,16 @@ document.addEventListener("DOMContentLoaded", async function() {
         const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
         const piIndex = headers.indexOf("PI");
         const dispIndex = headers.indexOf("QTDE_DISPONIVEL");
-        const compIndex = headers.indexOf("QTDE_COMPROMETIDA");
+        // Instead of relying on two specific names, iterate and find the header that contains "COMPROMET" in it.
+        let compIndex = -1;
+        headers.forEach((h, i) => {
+          if (h.toUpperCase().indexOf("COMPROMET") >= 0) {
+            compIndex = i;
+          }
+        });
   
         if (piIndex < 0 || dispIndex < 0 || compIndex < 0) {
-          alert("Colunas PI, QTDE_DISPONIVEL ou QTDE_COMPROMETIDA não encontradas.");
+          alert("As colunas necessárias (PI, QTDE_DISPONIVEL e uma coluna contendo 'COMPROMET') não foram encontradas.");
           hideImportLoadingModal();
           return;
         }
@@ -273,7 +279,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
-  // When saving a new OC, immediately update the licitação's balance consumption.
+  // ----- Save New OC (Manual Addition) -----
   async function saveNovaOC() {
     const ocNumber = document.getElementById("novaOC_ocNumber").value.trim();
     const ocBalance = parseFloat(document.getElementById("novaOC_balance").value);
@@ -296,7 +302,8 @@ document.addEventListener("DOMContentLoaded", async function() {
   
     for (const lic of matchingLics) {
       if (!lic.ocs) lic.ocs = [];
-      // Create new OC with full planned quantity in qtdeComprada.
+      // Create new OC with planned quantity in qtdeComprada.
+      // New OC is not marked as "arrecadado" until after pericia.
       const newOC = {
         codigo: ocNumber,
         qtdeComprada: ocBalance,
@@ -307,16 +314,14 @@ document.addEventListener("DOMContentLoaded", async function() {
       };
       lic.ocs.push(newOC);
       
-      // Immediately "consume" the licitação's balance:
+      // Immediately update OC total and reduce licitação's balance.
       lic.ocTotal = (lic.ocTotal || 0) + ocBalance;
-      lic.ocConsumed = (lic.ocConsumed || 0) + ocBalance;
       lic.balance = Math.max(0, (lic.balance || 0) - ocBalance);
   
       try {
         await db.collection("licitacoes").doc(lic.docId).update({
           ocs: lic.ocs,
           ocTotal: lic.ocTotal,
-          ocConsumed: lic.ocConsumed,
           balance: lic.balance
         });
       } catch (err) {
@@ -360,16 +365,59 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
     return Object.values(map);
   }
+
+ 
+  // ----- Group Licitações by PI -----
+  function groupByItem(licitacoesArr) {
+    const map = {};
+    licitacoesArr.forEach(lic => {
+      const piKey = (lic.pi || "").trim().toUpperCase();
+      if (!map[piKey]) {
+        map[piKey] = {
+          pi: lic.pi,
+          itemSolicitado: lic.itemSolicitado,
+          categoria: lic.categoria,
+          cmm: lic.cmm || 0,
+          totalQuantity: lic.totalQuantity || 0,
+          ocConsumed: lic.ocConsumed || 0,
+          ocTotal: lic.ocTotal || 0,
+          balance: lic.balance || 0,
+          comprometido: lic.comprometido || 0,
+          licitations: [lic],
+          comentarios: lic.comentarios || [],
+          newCommentCount: lic.newCommentCount || 0
+        };
+      } else {
+        map[piKey].totalQuantity += lic.totalQuantity || 0;
+        map[piKey].ocConsumed += lic.ocConsumed || 0;
+        map[piKey].ocTotal += lic.ocTotal || 0;
+        map[piKey].balance = lic.balance || 0;
+        map[piKey].comprometido = lic.comprometido || 0;
+        map[piKey].newCommentCount = Math.max(map[piKey].newCommentCount, lic.newCommentCount || 0);
+        map[piKey].comentarios = map[piKey].comentarios.concat(lic.comentarios || []);
+        map[piKey].licitations.push(lic);
+      }
+    });
+    return Object.values(map);
+  }
   
   // ----- Render Licitação Cards -----
   function renderLicitacoes() {
     if (!licitacaoCards) return;
     licitacaoCards.innerHTML = "";
-    licitacaoCards.style.display = "flex";
-    licitacaoCards.style.flexWrap = "wrap";
+    licitacaoCards.style.display      = "flex";
+    licitacaoCards.style.flexWrap     = "wrap";
     licitacaoCards.style.justifyContent = "flex-start";
   
+    // 1) Group by PI
     let items = groupByItem(licitacoes);
+  
+    // 2) Remove any entries without a valid itemSolicitado
+    items = items.filter(item =>
+      item.itemSolicitado && item.itemSolicitado.toString().trim() !== ""
+    );
+  
+    // 3) Search filter
     const searchTerm = licitacoesSearch ? licitacoesSearch.value.toLowerCase() : "";
     if (searchTerm) {
       items = items.filter(item =>
@@ -377,54 +425,60 @@ document.addEventListener("DOMContentLoaded", async function() {
         (item.pi || "").toLowerCase().includes(searchTerm)
       );
     }
+  
+    // 4) Category filter
     let categoryFilter = "all";
     filterCategoryRadios.forEach(radio => {
       if (radio.checked) categoryFilter = radio.value;
     });
     if (categoryFilter !== "all") {
-      items = items.filter(item => (item.categoria || "").toLowerCase() === categoryFilter.toLowerCase());
+      items = items.filter(item =>
+        (item.categoria || "").toLowerCase() === categoryFilter.toLowerCase()
+      );
     }
-    items.sort((a, b) => (a.itemSolicitado || "").localeCompare(b.itemSolicitado || ""));
   
-    items.forEach((item) => {
-      // Do not display an overall consumption bar; show individual licitação details.
+    // 5) Sort
+    items.sort((a, b) =>
+      (a.itemSolicitado || "").localeCompare(b.itemSolicitado || "")
+    );
+  
+    // 6) Render each card
+    items.forEach(item => {
+      // Build usage HTML using ocTotal (planned) vs totalQuantity
       let usageHTML = "";
       if (item.licitations && item.licitations.length > 0) {
-        usageHTML = item.licitations.map((lic) => {
-          const usedLic = lic.ocConsumed || 0;
-          const totalLic = lic.totalQuantity || 0;
-          let ratioLic = 0;
-          if (totalLic > 0) ratioLic = (usedLic / totalLic) * 100;
-          if (ratioLic > 100) ratioLic = 100;
-          const percentLic = Math.round(ratioLic);
-          let colorClassLic = "usage-green";
-          if (percentLic >= 80) colorClassLic = "usage-red";
-          else if (percentLic >= 50) colorClassLic = "usage-orange";
-          const restamInfoId = `restamInfo_${lic.id}`;
+        usageHTML = item.licitations.map(lic => {
+          const used      = lic.ocTotal || 0;            // planned consumption
+          const total     = lic.totalQuantity || 0;
+          let   ratio     = total > 0 ? (used / total) * 100 : 0;
+          ratio           = Math.min(ratio, 100);
+          const percent   = Math.round(ratio);
+          let   colorClass = "usage-green";
+          if (percent >= 80) colorClass = "usage-red";
+          else if (percent >= 50) colorClass = "usage-orange";
+          const detailId = `restamInfo_${lic.id}`;
           return `
-            <div class="usage-row ${colorClassLic}" onclick="toggleLicDetail('${restamInfoId}', event)">
-              <span>${percentLic}% usado</span>
+            <div class="usage-row ${colorClass}" onclick="toggleLicDetail('${detailId}', event)">
+              <span>${percent}% usado</span>
               <span>Licitação ${lic.numeroProcesso}</span>
               <span>${formatDate(lic.vencimentoAta)}</span>
             </div>
-            <div id="${restamInfoId}" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
-              Restam ${formatNumber(totalLic - usedLic)} KG de ${formatNumber(totalLic)} KG<br>
-              <button class="edit-lic-btn" onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar Licitação</button>
-              <button class="delete-lic-btn" onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir Licitação</button>
+            <div id="${detailId}" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
+              Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
+              <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
+              <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
             </div>
           `;
         }).join("");
       }
   
-      let autonomia = "N/A";
-      if (item.cmm > 0) {
-        autonomia = item.balance / item.cmm;
-      }
+      // Compute stats
+      const autonomia   = item.cmm > 0 ? Math.round((item.balance / item.cmm) * 30) : "N/A";
       const dispPlusComp = item.balance + item.comprometido;
-      let autCob = "N/A";
-      if (item.cmm > 0) {
-        autCob = dispPlusComp / item.cmm;
-      }
+      const autCob      = item.cmm > 0 ? Math.round((dispPlusComp / item.cmm) * 30) : "N/A";
+      const alertIcon   = (item.cmm > 0 && autCob < 30) ? "🚨" : "";
+  
+      // Create card
       const card = document.createElement("div");
       card.className = "item-card fancy-card";
       card.style.margin = "10px";
@@ -432,18 +486,16 @@ document.addEventListener("DOMContentLoaded", async function() {
       card.style.backgroundColor = "#fff";
       card.style.width = "300px";
       card.innerHTML = `
-        <h2 class="item-name">${item.itemSolicitado || ""}</h2>
-        <div class="lic-usage-list">
-          ${usageHTML}
-        </div>
+        <h2 class="item-name">${item.itemSolicitado}</h2>
+        <div class="lic-usage-list">${usageHTML}</div>
         <div class="item-stats">
-          <p><strong>Autonomia:</strong> <span>${formatNumber(autonomia)} meses</span></p>
-          <p><strong>CMM:</strong> <span>${formatNumber(item.cmm)}</span></p>
-          <p><strong>Disp. p/lib:</strong> <span>${formatNumber(item.balance)} KG</span></p>
-          <p><strong>Comprometido:</strong> <span>${formatNumber(item.comprometido)} KG</span></p>
-          <p><strong>Disp. + comp.:</strong> <span>${formatNumber(dispPlusComp)} KG</span></p>
-          <p><strong>Aut. c/ cob.:</strong> <span>${formatNumber(autCob)} meses</span></p>
-          <p><strong>Em OC:</strong> <span>${formatNumber(item.ocTotal)} KG</span></p>
+          <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
+          <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
+          <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
+          <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
+          <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
+          <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
+          <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
         </div>
         <div class="card-actions">
           <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
@@ -557,7 +609,8 @@ document.addEventListener("DOMContentLoaded", async function() {
         vencimentoAta: fd.get('vencimentoAta'),
         status: fd.get('status'),
         totalQuantity: totalQty,
-        balance: 0,
+        // Initialize balance to totalQuantity if not provided
+        balance: totalQty,
         ocTotal: 0,
         ocConsumed: 0,
         comprometido: 0,
@@ -649,6 +702,10 @@ document.addEventListener("DOMContentLoaded", async function() {
         const licData = doc.data();
         licData.docId = doc.id;
         if (!licData.comentarios) licData.comentarios = [];
+        // If balance is not defined, initialize it as totalQuantity.
+        if (licData.balance === undefined || licData.balance === null) {
+          licData.balance = licData.totalQuantity || 0;
+        }
         licData.ocConsumed = licData.ocConsumed || 0;
         licData.comprometido = licData.comprometido || 0;
         licData.newCommentCount = licData.newCommentCount || 0;
@@ -680,51 +737,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     }
   });
   
-  // ----- Profile Menu & Auth Logic -----
-  const profileButton = document.getElementById('profileButton');
-  const profileDropdown = document.getElementById('profileDropdown');
-  const resetPasswordLink = document.getElementById('resetPasswordLink');
-  const logoutLink = document.getElementById('logoutLink');
-
-  profileButton.addEventListener('click', (e) => {
-    e.stopPropagation();
-    profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
-  });
   
-  document.addEventListener('click', (e) => {
-    if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
-      profileDropdown.style.display = 'none';
-    }
-  });
-  
-  resetPasswordLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const user = firebase.auth().currentUser;
-    if (!user) {
-      alert("Nenhum usuário logado. Faça login primeiro.");
-      return;
-    }
-    try {
-      await firebase.auth().sendPasswordResetEmail(user.email);
-      alert("Email de redefinição de senha enviado para: " + user.email);
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao enviar redefinição de senha: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
-  
-  logoutLink.addEventListener('click', async (e) => {
-    e.preventDefault();
-    try {
-      await firebase.auth().signOut();
-      window.location.href = "index.html";
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao fazer logout: " + error.message);
-    }
-    profileDropdown.style.display = 'none';
-  });
 });
 
 // ===== Global Functions Accessible Outside DOMContentLoaded =====
@@ -777,59 +790,72 @@ window.deleteChatMessage = async function(pi, index) {
 window.verificarOCsByItem = function(pi) {
   const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (group.length === 0) return;
-  let totalOC = 0;
-  let totalArrecadado = 0;
-  let totalPericia = 0;
+
+  // gather _all_ OC entries across that PI
+  const allOCs = [];
   group.forEach(lic => {
-    totalOC += lic.ocTotal || 0;
-    totalArrecadado += lic.ocConsumed || 0;
-    if (lic.ocs && lic.ocs.length > 0) {
-      lic.ocs.forEach(oc => {
-        totalPericia += (oc.qtdePericia || 0);
-      });
-    }
+    (lic.ocs || []).forEach(oc => {
+      allOCs.push({ ...oc, numeroProcesso: lic.numeroProcesso });
+    });
   });
-  if (document.getElementById("ocTotalValue"))
-    document.getElementById("ocTotalValue").textContent = formatNumber(totalOC) + " KG";
-  if (document.getElementById("ocArrecadadoValue"))
-    document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArrecadado) + " KG";
-  if (document.getElementById("ocPericiaValue"))
-    document.getElementById("ocPericiaValue").textContent = formatNumber(totalPericia) + " KG";
+
+  // update dashboard totals
+  let totalOC = 0, totalArr = 0, totalPer = 0;
+  allOCs.forEach(o => {
+    totalOC += o.qtdeComprada  || 0;
+    totalArr += o.qtdeArrecadada || 0;
+    totalPer += o.qtdePericia    || 0;
+  });
+  document.getElementById("ocTotalValue").textContent      = formatNumber(totalOC) + " KG";
+  document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArr) + " KG";
+  document.getElementById("ocPericiaValue").textContent    = formatNumber(totalPer) + " KG";
+
+  // build the HTML—only one no‐OC message if empty
   const dashboardDiv = document.getElementById("ocDashboardContent");
-  if (!dashboardDiv) return;
   let html = "";
-  group.forEach(lic => {
-    if (lic.ocs && lic.ocs.length > 0) {
-      lic.ocs.sort((a, b) => a.codigo.localeCompare(b.codigo));
-      const ocHtml = lic.ocs.map(oc => `
-        <div class="oc-item">
-          <p><strong>OC Código:</strong> ${oc.codigo}</p>
-          <p><strong>OC Total:</strong> ${formatNumber(oc.qtdeComprada)} KG</p>
-          <p><strong>Arrecadado:</strong> ${formatNumber(oc.qtdeArrecadada)} KG</p>
-          <p><strong>Perícia:</strong> ${formatNumber(oc.qtdePericia)} KG</p>
-          <p><strong>Número do Processo:</strong> ${oc.numeroProcesso}</p>
-          <button class="delete-oc-btn" data-pi="${lic.pi}" data-codigo="${oc.codigo}" title="Excluir OC">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>
-      `).join("<hr>");
-      html += ocHtml + "<br>";
-    } else {
-      html += `<div class="oc-item"><p>Nenhuma OC cadastrada para ${lic.numeroProcesso}</p></div><br>`;
-    }
-  });
-  if (!html) html = "<p>Nenhuma OC cadastrada.</p>";
+  if (allOCs.length === 0) {
+    html = `<div class="oc-item">
+              <p>Nenhuma OC cadastrada para ${group[0].numeroProcesso}</p>
+            </div>`;
+  } else {
+    allOCs.sort((a, b) => a.codigo.localeCompare(b.codigo));
+    html = allOCs.map(o => `
+      <div class="oc-item">
+      <p>
+          <strong>Processo:</strong>
+          <span style="font-weight:700; color:#007bff;">
+            ${o.numeroProcesso}
+          </span>
+        </p>
+        <p><strong>OC Código:</strong> ${o.codigo}</p>
+        <p><strong>OC Total:</strong> ${formatNumber(o.qtdeComprada)} KG</p>
+        <p><strong>Arrecadado:</strong> ${formatNumber(o.qtdeArrecadada)} KG</p>
+        <p><strong>Perícia:</strong> ${formatNumber(o.qtdePericia)} KG</p>
+        <button 
+          class="delete-oc-btn" 
+          data-pi="${pi}" 
+          data-codigo="${o.codigo}" 
+          title="Excluir OC">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    `).join("");
+  }
+
   dashboardDiv.innerHTML = html;
-  dashboardDiv.querySelectorAll('.delete-oc-btn').forEach(button => {
-    button.addEventListener('click', function(e) {
+
+  // wire up delete buttons
+  dashboardDiv.querySelectorAll('.delete-oc-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
       e.stopPropagation();
-      const piVal = this.getAttribute('data-pi');
-      const codigoVal = this.getAttribute('data-codigo');
+      const piVal     = btn.getAttribute('data-pi');
+      const codigoVal = btn.getAttribute('data-codigo');
       if (confirm("Tem certeza que deseja excluir esta OC?")) {
         deleteOC(piVal, codigoVal);
       }
     });
   });
+
   openModal(document.getElementById("modalVerificarOCs"));
 };
 
@@ -904,7 +930,7 @@ async function updateOCForPericia(pi, ocCode, quantidade) {
       }
       if (updated) {
         const newConsumed = lic.ocs.reduce((acc, oc) => acc + (oc.qtdeArrecadada || 0), 0);
-        await db.collection("licitacoes").doc(doc.id).update({
+        await firebase.firestore().collection("licitacoes").doc(doc.id).update({
           ocs: lic.ocs,
           ocConsumed: newConsumed
         });
@@ -914,3 +940,49 @@ async function updateOCForPericia(pi, ocCode, quantidade) {
     console.error("Erro ao atualizar OC para pericia:", err);
   }
 }
+
+// ----- Profile Menu & Auth Logic -----
+const profileButton = document.getElementById('profileButton');
+const profileDropdown = document.getElementById('profileDropdown');
+const resetPasswordLink = document.getElementById('resetPasswordLink');
+const logoutLink = document.getElementById('logoutLink');
+
+profileButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  profileDropdown.style.display = (profileDropdown.style.display === 'block') ? 'none' : 'block';
+});
+
+document.addEventListener('click', (e) => {
+  if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
+    profileDropdown.style.display = 'none';
+  }
+});
+
+resetPasswordLink.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    alert("Nenhum usuário logado. Faça login primeiro.");
+    return;
+  }
+  try {
+    await firebase.auth().sendPasswordResetEmail(user.email);
+    alert("Email de redefinição de senha enviado para: " + user.email);
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao enviar redefinição de senha: " + error.message);
+  }
+  profileDropdown.style.display = 'none';
+});
+
+logoutLink.addEventListener('click', async (e) => {
+  e.preventDefault();
+  try {
+    await firebase.auth().signOut();
+    window.location.href = "index.html";
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao fazer logout: " + error.message);
+  }
+  profileDropdown.style.display = 'none';
+});

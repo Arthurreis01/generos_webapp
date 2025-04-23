@@ -1,0 +1,110 @@
+/* Reset & base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f3f4f6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+/* Card container — made wider */
+.card-container {
+  display: flex;
+  width: 1400px;      /* was 900px */
+  max-width: 100%;
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 6px 12px 24px rgba(0,0,255,0.5);
+}
+
+/* Left image */
+.image-panel {
+  flex: 1;
+  background: url('capa_intendencia.png') center/cover no-repeat;
+  min-height: 520px;  /* slightly taller */
+}
+
+/* Right form */
+.form-panel {
+  flex: 1.1;          /* give a bit more room to form panel */
+  padding: 56px;      /* extra padding */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Headings */
+.form-panel h2 {
+  font-size: 30px;    /* a little larger */
+  color: #111827;
+  margin-bottom: 8px;
+}
+.form-panel p {
+  font-size: 15px;
+  color: #6b7280;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+/* Form */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;          /* more space */
+}
+.form input {
+  padding: 14px 18px;
+  font-size: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form input:focus {
+  border-color: #3b82f6;
+}
+
+/* Buttons */
+.button-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 12px;
+}
+.btn {
+  flex: 1;
+  padding: 14px;
+  font-size: 15px;
+  border-radius: 10px;
+  text-align: center;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+.btn.primary {
+  background: #3b82f6;
+  color: #fff;
+}
+.btn.primary:hover {
+  background: #2563eb;
+}
+.btn.secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+.btn.secondary:hover {
+  background: #d1d5db;
+}
+
+/* Responsive */
+@media (max-width: 820px) {
+  .card-container { flex-direction: column; }
+  .image-panel { height: 260px; }
+  .form-panel { padding: 24px; }
+}
