@@ -177,78 +177,75 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   
     fileEstoqueInput.addEventListener('change', async function() {
-      const file = fileEstoqueInput.files[0];
+      const file = this.files[0];
       if (!file) return;
       showImportLoadingModal();
+    
       try {
         const ext = file.name.split('.').pop().toLowerCase();
-        let text = "";
-        if (ext === "csv") {
-          text = await file.text();
-        } else if (ext === "xls" || ext === "xlsx") {
-          const data = await file.arrayBuffer();
-          const workbook = XLSX.read(data, { type: "array" });
-          const firstSheet = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheet];
-          text = XLSX.utils.sheet_to_csv(worksheet);
+        let workbook;
+        if (ext === 'csv') {
+          const txt = await file.text();
+          workbook = XLSX.read(txt, { type: 'string', raw: false });
         } else {
-          alert("Formato de arquivo não suportado. Use CSV ou Excel (xls/xlsx).");
-          hideImportLoadingModal();
-          return;
+          const data = await file.arrayBuffer();
+          workbook = XLSX.read(data, { type: 'array', raw: false });
         }
-  
-        const lines = text.split(/\r?\n/);
-        const headers = lines[0].split(",").map(h => removeExtraQuotes(h.trim().toUpperCase()));
-        const piIndex = headers.indexOf("PI");
-        const dispIndex = headers.indexOf("QTDE_DISPONIVEL");
-        // Instead of relying on two specific names, iterate and find the header that contains "COMPROMET" in it.
-        let compIndex = -1;
-        headers.forEach((h, i) => {
-          if (h.toUpperCase().indexOf("COMPROMET") >= 0) {
-            compIndex = i;
-          }
-        });
-  
-        if (piIndex < 0 || dispIndex < 0 || compIndex < 0) {
-          alert("As colunas necessárias (PI, QTDE_DISPONIVEL e uma coluna contendo 'COMPROMET') não foram encontradas.");
-          hideImportLoadingModal();
-          return;
+    
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        // get a 2D-array of rows
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+        if (rows.length < 2) throw new Error('Planilha sem conteúdo.');
+    
+        // normalize headers
+        const headers = rows[0].map(h => (h == null ? '' : String(h).trim().toUpperCase()));
+        const piIdx   = headers.indexOf('PI');
+        const dispIdx = headers.indexOf('QTDE_DISPONIVEL');
+        const compIdx = headers.findIndex(h => h.includes('COMPROMET'));
+    
+        if (piIdx < 0 || dispIdx < 0 || compIdx < 0) {
+          throw new Error("Faltam colunas PI, QTDE_DISPONIVEL ou 'COMPROMET'.");
         }
-  
-        for (let i = 1; i < lines.length; i++) {
-          const row = lines[i].split(",");
-          if (row.length < headers.length) continue;
-          const pi = removeExtraQuotes(row[piIndex]).toUpperCase();
-          const dispVal = parseNumber(removeExtraQuotes(row[dispIndex]));
-          const compVal = parseNumber(removeExtraQuotes(row[compIndex]));
-  
-          const matchingLics = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi);
-          if (matchingLics.length > 0) {
-            for (let lic of matchingLics) {
-              lic.balance = dispVal;
-              lic.comprometido = compVal;
+    
+        // process data rows
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row) continue;
+    
+          // coerce safely to string before trim
+          const rawPi   = row[piIdx];
+          const rawDisp = row[dispIdx];
+          const rawComp = row[compIdx];
+    
+          const pi   = rawPi   == null ? '' : String(rawPi).trim().toUpperCase();
+          const disp = parseNumber(String(rawDisp   == null ? '' : rawDisp));
+          const comp = parseNumber(String(rawComp   == null ? '' : rawComp));
+    
+          licitacoes
+            .filter(l => l.pi && l.pi.toUpperCase() === pi)
+            .forEach(async lic => {
+              lic.balance      = disp;
+              lic.comprometido = comp;
               try {
-                await db.collection("licitacoes").doc(lic.docId).update({
-                  balance: dispVal,
-                  comprometido: compVal
-                });
+                await db.collection('licitacoes')
+                  .doc(lic.docId)
+                  .update({ balance: disp, comprometido: comp });
               } catch (err) {
-                console.error("Erro ao atualizar Firestore (Estoque):", err);
+                console.error('Erro ao atualizar Firestore (Estoque):', err);
               }
-            }
-          }
+            });
         }
-  
+    
         renderLicitacoes();
-        alert("Planilha de Estoque importada e valores atualizados com sucesso!");
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao importar Estoque: " + error.message);
+        alert('Planilha importada com sucesso!');
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao importar estoque: ' + err.message);
       } finally {
         hideImportLoadingModal();
-        fileEstoqueInput.value = "";
+        fileEstoqueInput.value = '';
       }
-    });
+    });    
   }
   
   // ----- Manual OC Addition Per Card -----
@@ -302,6 +299,7 @@ document.addEventListener("DOMContentLoaded", async function() {
   
     for (const lic of matchingLics) {
       if (!lic.ocs) lic.ocs = [];
+    
       // Create new OC with planned quantity in qtdeComprada.
       // New OC is not marked as "arrecadado" until after pericia.
       const newOC = {
@@ -313,24 +311,23 @@ document.addEventListener("DOMContentLoaded", async function() {
         itemSolicitado: itemSolicitado
       };
       lic.ocs.push(newOC);
-      
-      // Immediately update OC total and reduce licitação's balance.
+    
+      // Update only the OC total—do NOT touch lic.balance
       lic.ocTotal = (lic.ocTotal || 0) + ocBalance;
-      lic.balance = Math.max(0, (lic.balance || 0) - ocBalance);
-  
+    
       try {
         await db.collection("licitacoes").doc(lic.docId).update({
           ocs: lic.ocs,
-          ocTotal: lic.ocTotal,
-          balance: lic.balance
+          ocTotal: lic.ocTotal
         });
       } catch (err) {
         console.error("Erro ao atualizar licitação com novo OC:", err);
       }
     }
+    
     modalNovaOC.style.display = "none";
     renderLicitacoes();
-  }
+  }    
   
   // ----- Group Licitações by PI -----
   function groupByItem(licitacoesArr) {
@@ -662,6 +659,31 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
   
+  // ----- Edit Single Licitação by ID -----
+window.editSingleLicitacao = function(licId) {
+  // find the licitação object in memory
+  const lic = licitacoes.find(l => l.id === licId);
+  if (!lic) return;
+
+  // reset & populate the edit form
+  if (formEditLicitacao) formEditLicitacao.reset();
+  formEditLicitacao.elements['id'].value               = lic.id;
+  formEditLicitacao.elements['numeroProcesso'].value   = lic.numeroProcesso || '';
+  formEditLicitacao.elements['nomeEmpresa'].value      = lic.nomeEmpresa    || '';
+  formEditLicitacao.elements['telefoneEmpresa'].value  = lic.telefoneEmpresa|| '';
+  formEditLicitacao.elements['itemSolicitado'].value   = lic.itemSolicitado || '';
+  formEditLicitacao.elements['pi'].value               = lic.pi             || '';
+  formEditLicitacao.elements['vencimentoAta'].value    = lic.vencimentoAta  || '';
+  formEditLicitacao.elements['status'].value           = lic.status         || '';
+  // we typically don't edit balance here, so either hide or populate if you want:
+  formEditLicitacao.elements['balance'].value          = lic.balance        || 0;
+  formEditLicitacao.elements['categoria'].value        = lic.categoria      || '';
+  formEditLicitacao.elements['cmm'].value              = lic.cmm            || 0;
+
+  // open the edit modal
+  openModal(modalEditLicitacao);
+};
+
   // ----- Form Submission: Comentários (Chat) -----
   if (formComentarios) {
     formComentarios.addEventListener("submit", async function(e) {
