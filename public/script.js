@@ -84,6 +84,13 @@ function closeModal(modal) {
 
 // ===== Main Code: Run after DOM is Loaded =====
 document.addEventListener("DOMContentLoaded", async function() {
+  // Restore persisted "Última atualização" on page load
+  const saved = localStorage.getItem('lastUpdateInfo');
+  if (saved) {
+    const updEl = document.getElementById('lastUpdateInfo');
+    if (updEl) updEl.textContent = saved;
+  }
+
   const db = firebase.firestore();
 
   // ----- DOM Elements -----
@@ -103,45 +110,45 @@ document.addEventListener("DOMContentLoaded", async function() {
   const chatMessages = document.getElementById('chatMessages');
   const licitacoesSearch = document.getElementById('licitacoesSearch');
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
-  
+
   // Modal for Manual OC Addition
   const modalNovaOC = document.getElementById("modalNovaOC");
   const formNovaOC = document.getElementById("formNovaOC");
   let newOC_pi = null;
-  
+
   // ----- Modal Show/Close Event Listeners -----
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeModal(overlay);
     });
   });
-  
+
   document.querySelectorAll('.closeModal').forEach(btn => {
     btn.addEventListener('click', function() {
       const modalId = btn.getAttribute('data-modal');
       closeModal(document.getElementById(modalId));
     });
   });
-  
+
   // ----- FAB Menu Logic -----
   fab.addEventListener('click', function(e) {
     e.stopPropagation();
     fabMenu.style.display = (fabMenu.style.display === 'flex') ? 'none' : 'flex';
   });
-  
+
   document.addEventListener('click', function(e) {
     if (!fabMenu.contains(e.target) && e.target !== fab) {
       fabMenu.style.display = 'none';
     }
   });
-  
+
   if (btnNewLicitacao) {
     btnNewLicitacao.addEventListener('click', function() {
       if (formLicitacao) formLicitacao.reset();
       openModal(modalLicitacao);
     });
   }
-  
+
   // ----- CSV Export -----
   function exportDataToCSV(data, headers, fileName) {
     let csvContent = headers.join(",") + "\n";
@@ -158,7 +165,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     a.click();
     document.body.removeChild(a);
   }
-  
+
   if (document.getElementById("exportLicitacoesBtn")) {
     document.getElementById("exportLicitacoesBtn").addEventListener("click", function() {
       const headers = [
@@ -169,58 +176,56 @@ document.addEventListener("DOMContentLoaded", async function() {
       exportDataToCSV(licitacoes, headers, "licitacoes.xls");
     });
   }
-  
+
   // ----- Import Estoque -----
   if (btnImportEstoque && fileEstoqueInput) {
-    btnImportEstoque.addEventListener('click', function() {
-      fileEstoqueInput.click();
-    });
-  
+    // Open file picker
+    btnImportEstoque.addEventListener('click', () => fileEstoqueInput.click());
+
+    // Handle selected file
     fileEstoqueInput.addEventListener('change', async function() {
       const file = this.files[0];
       if (!file) return;
       showImportLoadingModal();
-    
+
       try {
+        // 1) Read workbook
         const ext = file.name.split('.').pop().toLowerCase();
         let workbook;
         if (ext === 'csv') {
-          const txt = await file.text();
-          workbook = XLSX.read(txt, { type: 'string', raw: false });
+          const text = await file.text();
+          workbook = XLSX.read(text, { type: 'string', raw: false });
         } else {
           const data = await file.arrayBuffer();
           workbook = XLSX.read(data, { type: 'array', raw: false });
         }
-    
+
+        // 2) Parse rows
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        // get a 2D-array of rows
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+        const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
         if (rows.length < 2) throw new Error('Planilha sem conteúdo.');
-    
-        // normalize headers
-        const headers = rows[0].map(h => (h == null ? '' : String(h).trim().toUpperCase()));
+
+        // 3) Locate columns
+        const headers = rows[0].map(h => h == null ? '' : String(h).trim().toUpperCase());
         const piIdx   = headers.indexOf('PI');
         const dispIdx = headers.indexOf('QTDE_DISPONIVEL');
         const compIdx = headers.findIndex(h => h.includes('COMPROMET'));
-    
         if (piIdx < 0 || dispIdx < 0 || compIdx < 0) {
           throw new Error("Faltam colunas PI, QTDE_DISPONIVEL ou 'COMPROMET'.");
         }
-    
-        // process data rows
+
+        // 4) Update in-memory and Firestore
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row) continue;
-    
-          // coerce safely to string before trim
+
           const rawPi   = row[piIdx];
           const rawDisp = row[dispIdx];
           const rawComp = row[compIdx];
-    
-          const pi   = rawPi   == null ? '' : String(rawPi).trim().toUpperCase();
-          const disp = parseNumber(String(rawDisp   == null ? '' : rawDisp));
-          const comp = parseNumber(String(rawComp   == null ? '' : rawComp));
-    
+          const pi      = rawPi   == null ? '' : String(rawPi).trim().toUpperCase();
+          const disp    = parseNumber(String(rawDisp == null ? '' : rawDisp));
+          const comp    = parseNumber(String(rawComp == null ? '' : rawComp));
+
           licitacoes
             .filter(l => l.pi && l.pi.toUpperCase() === pi)
             .forEach(async lic => {
@@ -228,15 +233,26 @@ document.addEventListener("DOMContentLoaded", async function() {
               lic.comprometido = comp;
               try {
                 await db.collection('licitacoes')
-                  .doc(lic.docId)
-                  .update({ balance: disp, comprometido: comp });
+                        .doc(lic.docId)
+                        .update({ balance: disp, comprometido: comp });
               } catch (err) {
                 console.error('Erro ao atualizar Firestore (Estoque):', err);
               }
             });
         }
-    
+
+        // 5) Re-render UI
         renderLicitacoes();
+
+        // 6) Update and persist "Última atualização"
+        const now   = new Date();
+        const stamp = `Última atualização: ${formatDate(now.toISOString())} ${formatTime(now)}`;
+        const updEl = document.getElementById('lastUpdateInfo');
+        if (updEl) {
+          updEl.textContent = stamp;
+          localStorage.setItem('lastUpdateInfo', stamp);
+        }
+
         alert('Planilha importada com sucesso!');
       } catch (err) {
         console.error(err);
@@ -245,9 +261,9 @@ document.addEventListener("DOMContentLoaded", async function() {
         hideImportLoadingModal();
         fileEstoqueInput.value = '';
       }
-    });    
+    });
   }
-  
+ 
   // ----- Manual OC Addition Per Card -----
   window.openNovaOCModal = function(pi, itemSolicitado) {
     newOC_pi = pi;
@@ -398,102 +414,104 @@ document.addEventListener("DOMContentLoaded", async function() {
     return Object.values(map);
   }
   
-  // ----- Render Licitação Cards -----
-  function renderLicitacoes() {
-    if (!licitacaoCards) return;
-    licitacaoCards.innerHTML = "";
-    licitacaoCards.style.display      = "flex";
-    licitacaoCards.style.flexWrap     = "wrap";
-    licitacaoCards.style.justifyContent = "flex-start";
-  
-    // 1) Group by PI
-    let items = groupByItem(licitacoes);
-  
-    // 2) Remove any entries without a valid itemSolicitado
+// ----- Render Licitação Cards -----
+function renderLicitacoes() {
+  if (!licitacaoCards) return;
+
+  // 1) compute only Frigorificados summary
+  const groupedAll = groupByItem(licitacoes);
+  const totalFrigor = groupedAll
+    .filter(it => (it.categoria||'').toLowerCase() === 'frigorificados')
+    .reduce((acc, it) => acc + (it.balance||0) + (it.comprometido||0), 0);
+
+  // 2) inject into the single summary container (next to help button)
+  const summaryEl = document.getElementById('summaryFrigorContainer');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <span class="summary-label">Disp. + Comp. Frigorificados</span>
+      <span class="summary-value">${formatNumber(totalFrigor/1000)} TON</span>
+    `;
+  }
+
+  // 3) clear and style the grid container
+  licitacaoCards.innerHTML = '';
+  licitacaoCards.style.display        = 'flex';
+  licitacaoCards.style.flexWrap       = 'wrap';
+  licitacaoCards.style.justifyContent = 'flex-start';
+
+  // 4) build, filter, sort items as before
+  let items = groupByItem(licitacoes)
+    .filter(item => item.itemSolicitado && item.itemSolicitado.trim() !== '');
+
+  const searchTerm = licitacoesSearch?.value.toLowerCase() || '';
+  if (searchTerm) {
     items = items.filter(item =>
-      item.itemSolicitado && item.itemSolicitado.toString().trim() !== ""
+      (item.itemSolicitado||'').toLowerCase().includes(searchTerm) ||
+      (item.pi||'').toLowerCase().includes(searchTerm)
     );
-  
-    // 3) Search filter
-    const searchTerm = licitacoesSearch ? licitacoesSearch.value.toLowerCase() : "";
-    if (searchTerm) {
-      items = items.filter(item =>
-        (item.itemSolicitado || "").toLowerCase().includes(searchTerm) ||
-        (item.pi || "").toLowerCase().includes(searchTerm)
-      );
-    }
-  
-    // 4) Category filter
-    let categoryFilter = "all";
-    filterCategoryRadios.forEach(radio => {
-      if (radio.checked) categoryFilter = radio.value;
-    });
-    if (categoryFilter !== "all") {
-      items = items.filter(item =>
-        (item.categoria || "").toLowerCase() === categoryFilter.toLowerCase()
-      );
-    }
-  
-    // 5) Sort
-    items.sort((a, b) =>
-      (a.itemSolicitado || "").localeCompare(b.itemSolicitado || "")
+  }
+
+  let categoryFilter = 'all';
+  filterCategoryRadios.forEach(r => { if (r.checked) categoryFilter = r.value; });
+  if (categoryFilter !== 'all') {
+    items = items.filter(item =>
+      (item.categoria||'').toLowerCase() === categoryFilter.toLowerCase()
     );
-  
-    // 6) Render each card
-    items.forEach(item => {
-      // Build usage HTML using ocTotal (planned) vs totalQuantity
-      let usageHTML = "";
-      if (item.licitations && item.licitations.length > 0) {
-        usageHTML = item.licitations.map(lic => {
-          const used      = lic.ocTotal || 0;            // planned consumption
-          const total     = lic.totalQuantity || 0;
-          let   ratio     = total > 0 ? (used / total) * 100 : 0;
-          ratio           = Math.min(ratio, 100);
-          const percent   = Math.round(ratio);
-          let   colorClass = "usage-green";
-          if (percent >= 80) colorClass = "usage-red";
-          else if (percent >= 50) colorClass = "usage-orange";
-          const detailId = `restamInfo_${lic.id}`;
-          return `
-            <div class="usage-row ${colorClass}" onclick="toggleLicDetail('${detailId}', event)">
-              <span>${percent}% usado</span>
-              <span>Licitação ${lic.numeroProcesso}</span>
-              <span>${formatDate(lic.vencimentoAta)}</span>
-            </div>
-            <div id="${detailId}" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
-              Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
-              <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
-              <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
-            </div>
-          `;
-        }).join("");
-      }
-  
-      // Compute stats
-      const autonomia   = item.cmm > 0 ? Math.round((item.balance / item.cmm) * 30) : "N/A";
-      const dispPlusComp = item.balance + item.comprometido;
-      const autCob      = item.cmm > 0 ? Math.round((dispPlusComp / item.cmm) * 30) : "N/A";
-      const alertIcon   = (item.cmm > 0 && autCob < 30) ? "🚨" : "";
-  
-      // Create card
-      const card = document.createElement("div");
-      card.className = "item-card fancy-card";
-      card.style.margin = "10px";
-      card.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
-      card.style.backgroundColor = "#fff";
-      card.style.width = "300px";
-      card.innerHTML = `
-        <h2 class="item-name">${item.itemSolicitado}</h2>
-        <div class="lic-usage-list">${usageHTML}</div>
-        <div class="item-stats">
-          <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
-          <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
-          <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
-          <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
-          <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
-          <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
-          <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
-        </div>
+  }
+
+  items.sort((a,b) => (a.itemSolicitado||'').localeCompare(b.itemSolicitado||''));
+
+  // 5) render each item card (identical to your existing code)
+  items.forEach(item => {
+    let usageHTML = '';
+    if (item.licitations?.length) {
+      usageHTML = item.licitations.map(lic => {
+        const used    = lic.ocTotal || 0;
+        const total   = lic.totalQuantity || 0;
+        let   pct     = total>0 ? Math.round((used/total)*100) : 0;
+        pct           = Math.min(pct,100);
+        let   cls     = pct>=80 ? 'usage-red'
+                      : pct>=50 ? 'usage-orange'
+                      : 'usage-green';
+        const detailId= `restamInfo_${lic.id}`;
+        return `
+          <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
+            <span>${pct}% usado</span>
+            <span>Licitação ${lic.numeroProcesso}</span>
+            <span>${formatDate(lic.vencimentoAta)}</span>
+          </div>
+          <div id="${detailId}" style="display:none;margin-left:1rem;font-size:0.85rem;color:#333;">
+            Restam ${formatNumber(total-used)} KG de ${formatNumber(total)} KG<br>
+            <button onclick="event.stopPropagation();editSingleLicitacao(${lic.id});">Editar</button>
+            <button onclick="event.stopPropagation();deleteSingleLicitacao(${lic.id});">Excluir</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const autonomia    = item.cmm>0 ? Math.round((item.balance/item.cmm)*30) : 'N/A';
+    const dispPlusComp = item.balance + item.comprometido;
+    const autCob       = item.cmm>0 ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
+    const alertIcon    = (item.cmm>0 && autCob<30) ? '🚨' : '';
+
+    const card = document.createElement('div');
+    card.className = 'item-card fancy-card';
+    card.style.margin          = '10px';
+    card.style.boxShadow       = '0 2px 8px rgba(0,0,0,0.2)';
+    card.style.backgroundColor = '#fff';
+    card.style.width           = '300px';
+    card.innerHTML = `
+      <h2 class="item-name">${item.itemSolicitado}</h2>
+      <div class="lic-usage-list">${usageHTML}</div>
+      <div class="item-stats">
+        <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
+        <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
+        <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
+        <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
+        <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
+        <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
+        <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
+      </div>
         <div class="card-actions">
           <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
             <i class="bi bi-chat-dots"></i>
@@ -515,11 +533,11 @@ document.addEventListener("DOMContentLoaded", async function() {
             <i class="bi bi-trash"></i>
           </button>
         </div>
-      `;
-      licitacaoCards.appendChild(card);
-    });
-  }
-  
+    `;
+    licitacaoCards.appendChild(card);
+  });
+}
+ 
   // ----- Toggle Detail -----
   window.toggleLicDetail = function(elemId, event) {
     if (event) event.stopPropagation();
