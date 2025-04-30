@@ -108,6 +108,20 @@ body {
 }
 
 /* Search and Section Header */
+.section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* row 1: search + actions + summary card */
+.section-header .search-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
 .search-container {
   display: flex;
   align-items: center;
@@ -120,6 +134,9 @@ body {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 16px;
+}
+.search-container input#licitacoesSearch {
+  flex: 1 1 auto;
 }
 .export-btn {
   background-color: #007bff;
@@ -153,7 +170,8 @@ body {
   border: 1px solid #ddd;
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: -10px;
+  margin-bottom: -10px;
   margin-left: 600px;
   box-shadow: 0 4px 10px rgb(213, 213, 213);
 }
@@ -175,10 +193,12 @@ body {
 
 /* Card Grid */
 .card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
+  justify-content: flex-start; /* or center if you prefer */
   padding: 1rem;
+  margin-top: -30px;
 }
 
 /* Item Card (Old UI restored with new fields) */
@@ -521,3 +541,38 @@ body {
   width: 350px;
   max-width: 90%;
 }
+
+/* style the single summary card */
+#summaryFrigorContainer {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: auto;
+}
+
+
+/* label & value in the card */
+#summaryFrigorContainer .summary-label {
+  font-size: 0.75rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+#summaryFrigorContainer .summary-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #222;
+}
+
+/* keep the “Última atualização” on its own line below */
+#lastUpdateInfo {
+  font-size: 0.875rem;
+  color: #555;
+  margin-left: 1260px;
+  margin-top: -30px;
+}
+
+
