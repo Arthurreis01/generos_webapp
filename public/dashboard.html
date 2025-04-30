@@ -49,18 +49,24 @@
         <input type="radio" name="filterCategory" value="Secos" id="filterSecos">
         <label for="filterSecos" class="toggle-option">Secos</label>
       </div>
+
+      <!-- Section Header with Search, Help & Frigorificados Summary -->
       <div class="section-header">
-        <div class="search-container">
+        <div class="search-container d-flex align-items-center gap-2">
           <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
           <button class="export-btn" id="exportLicitacoesBtn">Exportar</button>
           <button class="export-btn" id="btnImportEstoque">Importar Estoque</button>
           <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
             <i class="bi bi-question-circle"></i>
           </a>
+          <!-- Single Frigorificados summary card, next to the help icon -->
+          <div id="summaryFrigorContainer" class="summary-card ms-3">
+            <span class="summary-label">Disp. + Comp. Frigorificados</span>
+            <span class="summary-value">0,00 KG</span>
+          </div>
         </div>
         <span id="lastUpdateInfo"></span>
-      </div>
-      <!-- Card Grid (Item Cards will be injected here) -->
+      </div>      <!-- Card Grid (Item Cards will be injected here) -->
       <div class="card-grid" id="licitacaoCards"></div>
     </section>
   </div>
