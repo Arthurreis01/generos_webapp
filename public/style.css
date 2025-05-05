@@ -52,7 +52,10 @@ body {
 }
 .navbar .menu a.active {
   color: #007bff;
-  border-bottom: 2px solid #007bff;
+}
+.navbar .menu a:hover {
+  color: #0056b3; /* change color on hover */
+  border-bottom: 2px solid #0056b3; /* underline on hover */
 }
 
 /* Floating Action Button and Menu */
