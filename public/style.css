@@ -557,6 +557,35 @@ body {
   margin-left: auto;
 }
 
+/* torne cada card posicionável */
+.item-card {
+  position: relative;
+}
+
+/* círculo azul com “P” */
+.pericia-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(44, 123, 250, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 0.9rem;
+  line-height: 28px;
+  text-align: center;
+  pointer-events: none; /* optional: makes it non-clickable */
+}
+/* hide all detail-panels by default */
+.usage-detail {
+  display: none;
+  margin-left: 1rem;
+  font-size: 0.85rem;
+  color: #333;
+}
+
 
 /* label & value in the card */
 #summaryFrigorContainer .summary-label {
