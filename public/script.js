@@ -110,6 +110,19 @@ document.addEventListener("DOMContentLoaded", async function() {
   const chatMessages = document.getElementById('chatMessages');
   const licitacoesSearch = document.getElementById('licitacoesSearch');
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
+  const CENTERS = [
+    { code: '84810', name: 'CEIMBE'   },
+    { code: '87010', name: 'CEIMBRA'  },
+    { code: '86810', name: 'CEIMLA'   },
+    { code: '88820', name: 'CEIMMA'   },
+    { code: '83810', name: 'CEIMNA'   },
+    { code: '91010', name: 'CEIMNI'   },
+    { code: '31060', name: 'CEIMPL'   },
+    { code: '85810', name: 'CEIMRG'   },
+    { code: '82802', name: 'CEIMSA'   },
+    { code: '91181', name: 'CEIMSPA'  }
+  ];
+  
 
   // Modal for Manual OC Addition
   const modalNovaOC = document.getElementById("modalNovaOC");
@@ -177,36 +190,35 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
+
+
   // ----- Import Estoque -----
   if (btnImportEstoque && fileEstoqueInput) {
-    // Open file picker
     btnImportEstoque.addEventListener('click', () => fileEstoqueInput.click());
 
-    // Handle selected file
     fileEstoqueInput.addEventListener('change', async function() {
       const file = this.files[0];
       if (!file) return;
       showImportLoadingModal();
 
       try {
-        // 1) Read workbook
+        // Read workbook (csv or xls/xlsx)
         const ext = file.name.split('.').pop().toLowerCase();
-        let workbook;
-        if (ext === 'csv') {
-          const text = await file.text();
-          workbook = XLSX.read(text, { type: 'string', raw: false });
-        } else {
-          const data = await file.arrayBuffer();
-          workbook = XLSX.read(data, { type: 'array', raw: false });
-        }
+        let data = ext === 'csv'
+          ? await file.text()
+          : await file.arrayBuffer();
+        const readOpts = ext === 'csv'
+          ? { type: 'string', raw: false }
+          : { type: 'array',  raw: false };
+        const workbook = XLSX.read(data, readOpts);
 
-        // 2) Parse rows
+        // Extract rows
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows  = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
         if (rows.length < 2) throw new Error('Planilha sem conteúdo.');
 
-        // 3) Locate columns
-        const headers = rows[0].map(h => h == null ? '' : String(h).trim().toUpperCase());
+        // Find columns
+        const headers = rows[0].map(h => h ? String(h).trim().toUpperCase() : '');
         const piIdx   = headers.indexOf('PI');
         const dispIdx = headers.indexOf('QTDE_DISPONIVEL');
         const compIdx = headers.findIndex(h => h.includes('COMPROMET'));
@@ -214,20 +226,16 @@ document.addEventListener("DOMContentLoaded", async function() {
           throw new Error("Faltam colunas PI, QTDE_DISPONIVEL ou 'COMPROMET'.");
         }
 
-        // 4) Update in-memory and Firestore
+        // Update in-memory + Firestore
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row) continue;
-
-          const rawPi   = row[piIdx];
-          const rawDisp = row[dispIdx];
-          const rawComp = row[compIdx];
-          const pi      = rawPi   == null ? '' : String(rawPi).trim().toUpperCase();
-          const disp    = parseNumber(String(rawDisp == null ? '' : rawDisp));
-          const comp    = parseNumber(String(rawComp == null ? '' : rawComp));
+          const pi   = String(row[piIdx]  || '').trim().toUpperCase();
+          const disp = parseNumber(String(row[dispIdx]|| ''));
+          const comp = parseNumber(String(row[compIdx]|| ''));
 
           licitacoes
-            .filter(l => l.pi && l.pi.toUpperCase() === pi)
+            .filter(l => l.pi?.toUpperCase() === pi)
             .forEach(async lic => {
               lic.balance      = disp;
               lic.comprometido = comp;
@@ -235,17 +243,16 @@ document.addEventListener("DOMContentLoaded", async function() {
                 await db.collection('licitacoes')
                         .doc(lic.docId)
                         .update({ balance: disp, comprometido: comp });
-              } catch (err) {
-                console.error('Erro ao atualizar Firestore (Estoque):', err);
+              } catch (e) {
+                console.error('Erro ao atualizar Firestore (Estoque):', e);
               }
             });
         }
 
-        // 5) Re-render UI
         renderLicitacoes();
 
-        // 6) Update and persist "Última atualização"
-        const now   = new Date();
+        // Persist “Última atualização”
+        const now = new Date();
         const stamp = `Última atualização: ${formatDate(now.toISOString())} ${formatTime(now)}`;
         const updEl = document.getElementById('lastUpdateInfo');
         if (updEl) {
@@ -418,89 +425,98 @@ document.addEventListener("DOMContentLoaded", async function() {
 function renderLicitacoes() {
   if (!licitacaoCards) return;
 
-  // 1) compute only Frigorificados summary
-  const groupedAll = groupByItem(licitacoes);
-  const totalFrigor = groupedAll
-    .filter(it => (it.categoria||'').toLowerCase() === 'frigorificados')
-    .reduce((acc, it) => acc + (it.balance||0) + (it.comprometido||0), 0);
+  // 1) Group by PI and drop items without a name
+  let items = groupByItem(licitacoes)
+    .filter(item => item.itemSolicitado?.trim());
 
-  // 2) inject into the single summary container (next to help button)
-  const summaryEl = document.getElementById('summaryFrigorContainer');
-  if (summaryEl) {
-    summaryEl.innerHTML = `
-      <span class="summary-label">Disp. + Comp. Frigorificados</span>
-      <span class="summary-value">${formatNumber(totalFrigor/1000)} TON</span>
-    `;
+  // 2) Text search
+  const term = (licitacoesSearch?.value || '').toLowerCase();
+  if (term) {
+    items = items.filter(i =>
+      i.itemSolicitado.toLowerCase().includes(term) ||
+      i.pi.toLowerCase().includes(term)
+    );
   }
 
-  // 3) clear and style the grid container
+  // 3) Category & “Em Perícia” radios
+  let categoryFilter = 'all';
+  filterCategoryRadios.forEach(r => { if (r.checked) categoryFilter = r.value; });
+
+  if (categoryFilter === 'pericia') {
+    // only items where at least one OC has qtdePericia > 0
+    items = items.filter(i =>
+      i.licitations.some(lic =>
+        lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
+      )
+    );
+  }
+  else if (categoryFilter !== 'all') {
+    // frigorificados or secos
+    items = items.filter(i =>
+      (i.categoria || '').toLowerCase() === categoryFilter.toLowerCase()
+    );
+  }
+
+  // 4) Sort alphabetically
+  items.sort((a, b) =>
+    a.itemSolicitado.localeCompare(b.itemSolicitado)
+  );
+
+  // 5) Clear container and set grid styles
   licitacaoCards.innerHTML = '';
   licitacaoCards.style.display        = 'flex';
   licitacaoCards.style.flexWrap       = 'wrap';
   licitacaoCards.style.justifyContent = 'flex-start';
 
-  // 4) build, filter, sort items as before
-  let items = groupByItem(licitacoes)
-    .filter(item => item.itemSolicitado && item.itemSolicitado.trim() !== '');
-
-  const searchTerm = licitacoesSearch?.value.toLowerCase() || '';
-  if (searchTerm) {
-    items = items.filter(item =>
-      (item.itemSolicitado||'').toLowerCase().includes(searchTerm) ||
-      (item.pi||'').toLowerCase().includes(searchTerm)
-    );
-  }
-
-  let categoryFilter = 'all';
-  filterCategoryRadios.forEach(r => { if (r.checked) categoryFilter = r.value; });
-  if (categoryFilter !== 'all') {
-    items = items.filter(item =>
-      (item.categoria||'').toLowerCase() === categoryFilter.toLowerCase()
-    );
-  }
-
-  items.sort((a,b) => (a.itemSolicitado||'').localeCompare(b.itemSolicitado||''));
-
-  // 5) render each item card (identical to your existing code)
+  // 6) Render each card
   items.forEach(item => {
+    // build usage bars
     let usageHTML = '';
-    if (item.licitations?.length) {
-      usageHTML = item.licitations.map(lic => {
-        const used    = lic.ocTotal || 0;
-        const total   = lic.totalQuantity || 0;
-        let   pct     = total>0 ? Math.round((used/total)*100) : 0;
-        pct           = Math.min(pct,100);
-        let   cls     = pct>=80 ? 'usage-red'
-                      : pct>=50 ? 'usage-orange'
-                      : 'usage-green';
-        const detailId= `restamInfo_${lic.id}`;
-        return `
-          <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
-            <span>${pct}% usado</span>
-            <span>Licitação ${lic.numeroProcesso}</span>
-            <span>${formatDate(lic.vencimentoAta)}</span>
-          </div>
-          <div id="${detailId}" style="display:none;margin-left:1rem;font-size:0.85rem;color:#333;">
-            Restam ${formatNumber(total-used)} KG de ${formatNumber(total)} KG<br>
-            <button onclick="event.stopPropagation();editSingleLicitacao(${lic.id});">Editar</button>
-            <button onclick="event.stopPropagation();deleteSingleLicitacao(${lic.id});">Excluir</button>
-          </div>
-        `;
-      }).join('');
-    }
+    item.licitations.forEach(lic => {
+      const used  = lic.ocTotal || 0;
+      const total = lic.totalQuantity || 0;
+      let pct = total ? Math.round((used/total)*100) : 0;
+      pct = Math.min(pct, 100);
+      const cls = pct >= 80 ? 'usage-red'
+                : pct >= 50 ? 'usage-orange'
+                : 'usage-green';
+      const detailId = `restamInfo_${lic.id}`;
+      usageHTML += `
+        <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
+          <span>${pct}% usado</span>
+          <span>${lic.numeroProcesso}</span>
+          <span>${formatDate(lic.vencimentoAta)}</span>
+        </div>
+        <div id="${detailId}" class="usage-detail" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
+          Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
+          <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
+          <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
+        </div>
+      `;
+    });
 
-    const autonomia    = item.cmm>0 ? Math.round((item.balance/item.cmm)*30) : 'N/A';
-    const dispPlusComp = item.balance + item.comprometido;
-    const autCob       = item.cmm>0 ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
-    const alertIcon    = (item.cmm>0 && autCob<30) ? '🚨' : '';
+    // compute stats
+    const autonomia    = item.cmm ? Math.round((item.balance/item.cmm)*30) : 'N/A';
+    const dispPlusComp = (item.balance||0) + (item.comprometido||0);
+    const autCob       = item.cmm ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
+    const alertIcon    = (item.cmm && autCob < 30) ? '🚨' : '';
 
+    // check for pericia badge
+    const hasPericia = item.licitations.some(lic =>
+      lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
+    );
+
+    // create card element
     const card = document.createElement('div');
     card.className = 'item-card fancy-card';
-    card.style.margin          = '10px';
-    card.style.boxShadow       = '0 2px 8px rgba(0,0,0,0.2)';
-    card.style.backgroundColor = '#fff';
-    card.style.width           = '300px';
+    card.style.position = 'relative';
+    card.style.margin   = '10px';
+    card.style.width    = '300px';
+
     card.innerHTML = `
+      ${hasPericia
+        ? `<button class="pericia-btn" title="Em Perícia">P</button>`
+        : ''}
       <h2 class="item-name">${item.itemSolicitado}</h2>
       <div class="lic-usage-list">${usageHTML}</div>
       <div class="item-stats">
@@ -512,28 +528,31 @@ function renderLicitacoes() {
         <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
         <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
       </div>
-        <div class="card-actions">
-          <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
-            <i class="bi bi-chat-dots"></i>
-            ${item.newCommentCount && item.newCommentCount > 0 ? `<span class="new-comment-badge">${item.newCommentCount}</span>` : ""}
-          </button>
-          <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
-            <i class="bi bi-bar-chart"></i>
-          </button>
-          <button onclick="openNovaOCModal('${item.pi}', '${item.itemSolicitado}')" title="Adicionar OC Manual">
-            <i class="bi bi-plus-square"></i>
-          </button>
-          <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Adicionar nova licitação para este PI">
-            <i class="bi bi-plus"></i>
-          </button>
-          <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
-            <i class="bi bi-pencil"></i>
-          </button>
-          <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitações deste PI">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>
+      <div class="card-actions">
+        <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
+          <i class="bi bi-chat-dots"></i>
+          ${item.newCommentCount>0
+            ? `<span class="new-comment-badge">${item.newCommentCount}</span>`
+            : ''}
+        </button>
+        <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
+          <i class="bi bi-bar-chart"></i>
+        </button>
+        <button onclick="openNovaOCModal('${item.pi}','${item.itemSolicitado}')" title="Adicionar OC Manual">
+          <i class="bi bi-plus-square"></i>
+        </button>
+        <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Nova Licitação">
+          <i class="bi bi-plus"></i>
+        </button>
+        <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitações">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
     `;
+
     licitacaoCards.appendChild(card);
   });
 }
@@ -982,7 +1001,6 @@ async function updateOCForPericia(pi, ocCode, quantidade) {
 }
 
 // ----- Profile Menu & Auth Logic -----
-const profileButton = document.getElementById('profileButton');
 const profileDropdown = document.getElementById('profileDropdown');
 const resetPasswordLink = document.getElementById('resetPasswordLink');
 const logoutLink = document.getElementById('logoutLink');
