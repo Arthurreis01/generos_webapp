@@ -422,9 +422,19 @@ document.addEventListener("DOMContentLoaded", async function() {
   }
   
 // ----- Render Licitação Cards -----
-function renderLicitacoes() {
+function renderLicitacoes() 
+{
   if (!licitacaoCards) return;
 
+  // 0) Update "Disp. + Comp. Frigorificados" summary
+  const totalFrigor = groupByItem(licitacoes)
+  .filter(i => (i.categoria || '').toLowerCase() === 'frigorificados')
+  .reduce((sum, i) => sum + (i.balance || 0) + (i.comprometido || 0), 0);
+
+  const summaryEl = document.querySelector('#summaryFrigorContainer .summary-value');
+  if (summaryEl) {
+  summaryEl.textContent = `${formatNumber(totalFrigor)} KG`;
+  }
   // 1) Group by PI and drop items without a name
   let items = groupByItem(licitacoes)
     .filter(item => item.itemSolicitado?.trim());
@@ -556,6 +566,7 @@ function renderLicitacoes() {
     licitacaoCards.appendChild(card);
   });
 }
+
  
   // ----- Toggle Detail -----
   window.toggleLicDetail = function(elemId, event) {
