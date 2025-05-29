@@ -110,7 +110,11 @@ document.addEventListener("DOMContentLoaded", async function() {
   const chatMessages = document.getElementById('chatMessages');
   const licitacoesSearch = document.getElementById('licitacoesSearch');
   const filterCategoryRadios = document.querySelectorAll('input[name="filterCategory"]');
-  const CENTERS = [
+  const exportOCsBtn = document.getElementById('exportOCsBtn');
+  if (exportOCsBtn) {
+    exportOCsBtn.addEventListener('click', exportAllOCs);
+  }
+    const CENTERS = [
     { code: '84810', name: 'CEIMBE'   },
     { code: '87010', name: 'CEIMBRA'  },
     { code: '86810', name: 'CEIMLA'   },
@@ -162,34 +166,73 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
   }
 
-  // ----- CSV Export -----
-  function exportDataToCSV(data, headers, fileName) {
-    let csvContent = headers.join(",") + "\n";
-    data.forEach(item => {
-      const row = headers.map(header => `"${item[header] !== undefined ? item[header] : ''}"`).join(",");
-      csvContent += row + "\n";
+// ===== Export all OCs across every PI as .xlsx =====
+function exportAllOCs() {
+  const allOCs = [];
+  licitacoes.forEach(lic => {
+    (lic.ocs || []).forEach(oc => {
+      allOCs.push({
+        Processo:      lic.numeroProcesso,
+        Item:          lic.itemSolicitado,
+        Código_OC:     oc.codigo,
+        Comprada:      oc.qtdeComprada,
+        Arrecadada:    oc.qtdeArrecadada,
+        Pericia:       oc.qtdePericia
+      });
     });
-    const blob = new Blob([csvContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  });
+
+  if (allOCs.length === 0) {
+    alert('Não há OCs para exportar.');
+    return;
   }
 
-  if (document.getElementById("exportLicitacoesBtn")) {
-    document.getElementById("exportLicitacoesBtn").addEventListener("click", function() {
-      const headers = [
-        "id", "numeroProcesso", "nomeEmpresa", "telefoneEmpresa", "itemSolicitado",
-        "vencimentoAta", "status", "totalQuantity", "balance", "ocTotal", "ocConsumed",
-        "categoria", "cmm", "pi", "comprometido"
-      ];
-      exportDataToCSV(licitacoes, headers, "licitacoes.xls");
-    });
-  }
+  const ws = XLSX.utils.json_to_sheet(allOCs);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'OCs');
+  XLSX.writeFile(wb, 'ocs_export.xlsx');
+}
 
+/**
+ * Export an array of objects to a true .xlsx file.
+ * @param {Array<Object>} data    – your array of rows
+ * @param {string[]}      headers – the columns, in order
+ * @param {string}        fileName– the download filename (will append .xlsx if missing)
+ */
+function exportDataToXLSX(data, headers, fileName) {
+  // 1) Build a 2D array: first row = headers, then one row per data item
+  const worksheetData = [
+    headers,
+    ...data.map(item => headers.map(h => item[h] != null ? item[h] : ""))
+  ];
+
+  // 2) Create a worksheet & workbook
+  const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+
+  // 3) Write it out as an ArrayBuffer
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+  // 4) Trigger download
+  const blob = new Blob([wbout], { type: "application/octet-stream" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+document.getElementById("exportLicitacoesBtn")?.addEventListener("click", () => {
+  const headers = [
+    "id","numeroProcesso","nomeEmpresa","telefoneEmpresa","itemSolicitado",
+    "vencimentoAta","status","totalQuantity","balance","ocTotal","ocConsumed",
+    "categoria","cmm","pi","comprometido"
+  ];
+  exportDataToXLSX(licitacoes, headers, "licitacoes_export");
+});
 
 
   // ----- Import Estoque -----
@@ -479,95 +522,117 @@ function renderLicitacoes()
   licitacaoCards.style.justifyContent = 'flex-start';
 
   // 6) Render each card
-  items.forEach(item => {
-    // build usage bars
-    let usageHTML = '';
-    item.licitations.forEach(lic => {
-      const used  = lic.ocTotal || 0;
-      const total = lic.totalQuantity || 0;
-      let pct = total ? Math.round((used/total)*100) : 0;
-      pct = Math.min(pct, 100);
-      const cls = pct >= 80 ? 'usage-red'
-                : pct >= 50 ? 'usage-orange'
-                : 'usage-green';
-      const detailId = `restamInfo_${lic.id}`;
-      usageHTML += `
-        <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
-          <span>${pct}% usado</span>
-          <span>${lic.numeroProcesso}</span>
-          <span>${formatDate(lic.vencimentoAta)}</span>
-        </div>
-        <div id="${detailId}" class="usage-detail" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
-          Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
-          <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
-          <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
-        </div>
-      `;
-    });
+// inside renderLicitacoes(), replace your current items.forEach(...) with this:
 
-    // compute stats
-    const autonomia    = item.cmm ? Math.round((item.balance/item.cmm)*30) : 'N/A';
-    const dispPlusComp = (item.balance||0) + (item.comprometido||0);
-    const autCob       = item.cmm ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
-    const alertIcon    = (item.cmm && autCob < 30) ? '🚨' : '';
-
-    // check for pericia badge
-    const hasPericia = item.licitations.some(lic =>
-      lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
-    );
-
-    // create card element
-    const card = document.createElement('div');
-    card.className = 'item-card fancy-card';
-    card.style.position = 'relative';
-    card.style.margin   = '10px';
-    card.style.width    = '300px';
-
-    card.innerHTML = `
-      ${hasPericia
-        ? `<button class="pericia-btn" title="Em Perícia">P</button>`
-        : ''}
-      <h2 class="item-name">${item.itemSolicitado}</h2>
-      <div class="lic-usage-list">${usageHTML}</div>
-      <div class="item-stats">
-        <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
-        <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
-        <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
-        <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
-        <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
-        <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
-        <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
+items.forEach(item => {
+  // 1) build usage bars
+  let usageHTML = '';
+  item.licitations.forEach(lic => {
+    const used  = lic.ocTotal || 0;
+    const total = lic.totalQuantity || 0;
+    let pct = total ? Math.round((used/total)*100) : 0;
+    pct = Math.min(pct, 100);
+    const cls = pct >= 80 ? 'usage-red'
+              : pct >= 50 ? 'usage-orange'
+              : 'usage-green';
+    const detailId = `restamInfo_${lic.id}`;
+    usageHTML += `
+      <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
+        <span>${pct}% usado</span>
+        <span>${lic.numeroProcesso}</span>
+        <span>${formatDate(lic.vencimentoAta)}</span>
       </div>
-      <div class="card-actions">
-        <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
-          <i class="bi bi-chat-dots"></i>
-          ${item.newCommentCount>0
-            ? `<span class="new-comment-badge">${item.newCommentCount}</span>`
-            : ''}
-        </button>
-        <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
-          <i class="bi bi-bar-chart"></i>
-        </button>
-        <button onclick="openNovaOCModal('${item.pi}','${item.itemSolicitado}')" title="Adicionar OC Manual">
-          <i class="bi bi-plus-square"></i>
-        </button>
-        <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Nova Licitação">
-          <i class="bi bi-plus"></i>
-        </button>
-        <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
-          <i class="bi bi-pencil"></i>
-        </button>
-        <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitações">
-          <i class="bi bi-trash"></i>
-        </button>
+      <div id="${detailId}" class="usage-detail" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
+        Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
+        <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
+        <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
       </div>
     `;
-
-    licitacaoCards.appendChild(card);
   });
-}
 
- 
+  // 2) compute stats
+  const autonomia    = item.cmm ? Math.round((item.balance/item.cmm)*30) : 'N/A';
+  const dispPlusComp = (item.balance||0) + (item.comprometido||0);
+  const autCob       = item.cmm ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
+  const alertIcon    = (item.cmm && autCob < 30) ? '🚨' : '';
+
+  // 3) pericia badge
+  const hasPericia = item.licitations.some(lic =>
+    lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
+  );
+
+  // 4) due‐soon alert (≤45 days)
+  const now = new Date();
+  const dueSoonList = item.licitations
+    .map(lic => {
+      const due = new Date(lic.vencimentoAta);
+      const diffDays = Math.ceil((due - now)/(1000*60*60*24));
+      return { lic, diffDays };
+    })
+    .filter(x => x.diffDays > 0 && x.diffDays <= 45)
+    .sort((a,b) => a.diffDays - b.diffDays);
+
+  let dueBadgeHTML = '';
+  if (dueSoonList.length > 0) {
+    const { lic, diffDays } = dueSoonList[0];
+    dueBadgeHTML = `
+    <div class="due-alert"
+         data-tooltip="Licitação ${lic.numeroProcesso}: ${diffDays} dias restantes">
+      !
+    </div>`;
+    }
+
+  // 5) assemble card
+  const card = document.createElement('div');
+  card.className = 'item-card fancy-card';
+  card.style.position = 'relative';
+  card.style.margin   = '10px';
+  card.style.width    = '300px';
+
+  card.innerHTML = `
+    ${dueBadgeHTML}
+    ${hasPericia
+      ? `<button class="pericia-btn" title="Em Perícia">P</button>`
+      : ''}
+    <h2 class="item-name">${item.itemSolicitado}</h2>
+    <div class="lic-usage-list">${usageHTML}</div>
+    <div class="item-stats">
+      <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
+      <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
+      <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
+      <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
+      <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
+      <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
+      <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
+    </div>
+    <div class="card-actions">
+      <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
+        <i class="bi bi-chat-dots"></i>
+        ${item.newCommentCount>0
+          ? `<span class="new-comment-badge">${item.newCommentCount}</span>`
+          : ''}
+      </button>
+      <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
+        <i class="bi bi-bar-chart"></i>
+      </button>
+      <button onclick="openNovaOCModal('${item.pi}','${item.itemSolicitado}')" title="Adicionar OC Manual">
+        <i class="bi bi-plus-square"></i>
+      </button>
+      <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Nova Licitação">
+        <i class="bi bi-plus"></i>
+      </button>
+      <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
+        <i class="bi bi-pencil"></i>
+      </button>
+      <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitações">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
+  `;
+
+  licitacaoCards.appendChild(card);
+});
+} 
   // ----- Toggle Detail -----
   window.toggleLicDetail = function(elemId, event) {
     if (event) event.stopPropagation();
@@ -858,18 +923,28 @@ window.deleteChatMessage = async function(pi, index) {
 
 // OC Dashboard Functions
 window.verificarOCsByItem = function(pi) {
+  // 1) Remember which PI is open for exporting later
+  currentExportOCSpi = pi;
+
+  // 2) Find all licitações for this PI
   const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
   if (group.length === 0) return;
 
-  // gather _all_ OC entries across that PI
+  // 3) Gather every OC entry across that PI
   const allOCs = [];
   group.forEach(lic => {
     (lic.ocs || []).forEach(oc => {
-      allOCs.push({ ...oc, numeroProcesso: lic.numeroProcesso });
+      allOCs.push({
+        numeroProcesso: lic.numeroProcesso || '',
+        codigo:          oc.codigo,
+        qtdeComprada:    oc.qtdeComprada,
+        qtdeArrecadada:  oc.qtdeArrecadada,
+        qtdePericia:     oc.qtdePericia
+      });
     });
   });
 
-  // update dashboard totals
+  // 4) Update the dashboard summary cards
   let totalOC = 0, totalArr = 0, totalPer = 0;
   allOCs.forEach(o => {
     totalOC += o.qtdeComprada  || 0;
@@ -880,7 +955,7 @@ window.verificarOCsByItem = function(pi) {
   document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArr) + " KG";
   document.getElementById("ocPericiaValue").textContent    = formatNumber(totalPer) + " KG";
 
-  // build the HTML—only one no‐OC message if empty
+  // 5) Build the OC list HTML
   const dashboardDiv = document.getElementById("ocDashboardContent");
   let html = "";
   if (allOCs.length === 0) {
@@ -891,8 +966,7 @@ window.verificarOCsByItem = function(pi) {
     allOCs.sort((a, b) => a.codigo.localeCompare(b.codigo));
     html = allOCs.map(o => `
       <div class="oc-item">
-      <p>
-          <strong>Processo:</strong>
+        <p><strong>Processo:</strong>
           <span style="font-weight:700; color:#007bff;">
             ${o.numeroProcesso}
           </span>
@@ -911,10 +985,9 @@ window.verificarOCsByItem = function(pi) {
       </div>
     `).join("");
   }
-
   dashboardDiv.innerHTML = html;
 
-  // wire up delete buttons
+  // 6) Wire up delete buttons
   dashboardDiv.querySelectorAll('.delete-oc-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -926,6 +999,7 @@ window.verificarOCsByItem = function(pi) {
     });
   });
 
+  // 7) Open the OC dashboard modal
   openModal(document.getElementById("modalVerificarOCs"));
 };
 
@@ -1055,3 +1129,8 @@ logoutLink.addEventListener('click', async (e) => {
   }
   profileDropdown.style.display = 'none';
 });
+
+
+// wire up the button
+document.getElementById('exportOCsBtn')
+        .addEventListener('click', exportAllOCs);
