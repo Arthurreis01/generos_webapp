@@ -1,3 +1,11 @@
+/* ============ CSS Variables for Icon Colors ============ */
+:root {
+  --icon-edit: #6c757d;
+  --icon-delete: #dc3545;
+  --icon-recebimento: #0d6efd;
+  --icon-pericia: #ffc107;
+}
+
 /* ============ Reset & Base Typography ============ */
 * {
   box-sizing: border-box;
@@ -8,101 +16,160 @@ html, body {
   width: 100%;
   height: 100%;
 }
-
-/* Fonte mais clean e moderna */
 body {
   background: #f7f9fc;
   color: #444;
   font-family: "Segoe UI", Tahoma, sans-serif;
   font-size: 16px;
-  padding-top: 70px; /* Espaço para a navbar fixa */
+  padding-top: 70px; /* Espaço para navbar fixa */
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* ============ Container Full Width Override ============ */
+.container {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin: 0 !important;
 }
 
 /* ============ Navbar ============ */
 .navbar {
   background-color: #004080 !important;
 }
-.navbar-brand, .nav-link {
+.navbar-brand,
+.navbar .form-control,
+.navbar .btn-link {
   color: #fff !important;
 }
-.navbar-brand:hover, .nav-link:hover {
+.navbar .form-control {
+  width: 300px;
+}
+.navbar .btn-link:hover {
   color: #e0e0e0 !important;
 }
 
-/* ============ Container ============ */
-.container {
-  margin-top: 20px;
-  max-height: 100vh;
+/* ============ Pills de Meses ============ */
+.nav-pills .nav-link {
+  margin-right: 0.5rem;
+}
+.nav-pills .nav-link.active {
+  background-color: #0d6efd;
 }
 
-h2 {
-  font-weight: 500;
-  color: #222;
+/* ============ Botão Adicionar ============ */
+.btn-success.btn-lg {
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
 }
 
-/* ============ Filter Row & Search ============ */
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-.filter-row .form-label {
-  margin-bottom: 0.2rem;
-}
-.filter-row input {
-  max-width: 180px;
+.btn-success {
+  background-color: #198754 !important;
+  border-color:    #198754 !important;
+  color:           #fff       !important;
 }
 
-/* ============ Table ============ */
+/* ============ Tabela (Spreadsheet) ============ */
+#agendaTable {
+  width: 100%;
+}
 
 .table-hover tbody tr:hover {
-  background-color: #f1f3f5;
+  background-color: #edf5ff;
 }
-.table-sm td, .table-sm th {
-  padding: 0.5rem;
+.table tbody tr {
+  background-color: #fff !important;
 }
-.table-striped tbody tr:nth-of-type(odd) {
-  background-color: #ffffff;
-}
+.table-striped tbody tr:nth-of-type(odd),
 .table-striped tbody tr:nth-of-type(even) {
-  background-color: #fdfdfd;
+  background-color: transparent !important;
 }
-.table-light thead th {
-  background-color: #e9ecef !important;
+.table thead th {
+  background-color: #e3f2fd !important;
   border-bottom: 2px solid #ccc !important;
 }
-#agendaTable td, #agendaTable th {
+#agendaTable th,
+#agendaTable td {
   vertical-align: middle;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  padding: 0.75rem;
 }
 
-/* ============ Ações centralizadas ============ */
-#agendaTable th.text-center,
-#agendaTable td.text-center {
-  text-align: center;
+/* Remove side gutters in rows */
+.row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+.row > [class*="col-"] {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
-/* ============ Editable Cells ============ */
-.editable {
-  background-color: #fffbea;
-  border: 1px dashed #ccc;
+/* override any truncation */
+.text-truncate {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
 }
 
-/* ============ Tooltip Transition ============ */
-.btn[data-bs-toggle="tooltip"] {
-  position: relative;
+/* ============ Tiny Sorter Button ============ */
+.sort-btn {
+  background: none;
+  border: none;
+  color: #007bff;
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
+  cursor: pointer;
 }
 
-/* OBS Modal specific styling */
+/* ============ Action Buttons Icons ============ */
+.btn-sm {
+  background: none !important;
+  border: none !important;
+  padding: 0.25rem;
+}
+.btn-sm .bi {
+  font-size: 1.2rem;
+}
+.bi-pencil-square {
+  color: var(--icon-edit) !important;
+}
+.bi-trash {
+  color: var(--icon-delete) !important;
+}
+.bi-box-seam {
+  color: var(--icon-recebimento) !important;
+}
+.bi-question-octagon {
+  color: var(--icon-pericia) !important;
+}
+
+/* ============ Modal OBS Specific Styling ============ */
 #obsModal .modal-dialog {
-  max-width: 600px;       /* adjust width as needed */
+  max-width: 600px;
+}
+#obsModal .modal-body {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-#obsModal .modal-body {
-  max-height: 250px;      /* limits height */
-  overflow-y: auto;       /* makes it scrollable when content is long */
-  padding: 1rem;          
-  white-space: pre-wrap;  /* preserves line breaks */
-  word-break: break-word; /* wraps long words */
+/* ============ Export Button Styling ============ */
+.btn-export {
+  background-color: #0dcaf0 !important;
+  border-color: #0dcaf0 !important;
+  color: #fff !important;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.btn-export:hover {
+  background-color: #31d2f2 !important;
+  border-color: #31d2f2 !important;
+}
+.btn-export .bi {
+  vertical-align: -.125em;
 }
