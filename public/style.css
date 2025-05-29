@@ -607,4 +607,42 @@ body {
   margin-top: -30px;
 }
 
+/* the little “!” badge */
+.due-alert {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #f59e0b;       /* amber */
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
 
+/* the custom tooltip */
+.due-alert::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  transform: translateY(-50%) translateX(-8px);
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* show on hover */
+.due-alert:hover::after {
+  opacity: 1;
+}
