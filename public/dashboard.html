@@ -56,19 +56,28 @@
       <div class="section-header">
         <div class="search-container d-flex align-items-center gap-2">
           <input type="text" id="licitacoesSearch" placeholder="Pesquisar Licitações...">
-          <button class="export-btn" id="exportLicitacoesBtn">Exportar</button>
-          <button class="export-btn" id="btnImportEstoque">Importar Estoque</button>
-          <a href="help.html" class="help-btn" target="_blank" title="Ajuda">
+          <button class="export-btn btn btn-sm btn-outline-primary" id="exportLicitacoesBtn">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar
+          </button>
+          <button id="exportOCsBtn" class="export-btn btn btn-sm btn-outline-primary">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar OCs
+          </button>          
+          <button class="export-btn btn btn-sm btn-outline-secondary" id="btnImportEstoque">
+            <i class="bi bi-file-earmark-arrow-up"></i> Importar Estoque
+          </button>
+          <a href="help.html" class="help-btn btn btn-sm btn-outline-info" target="_blank" title="Ajuda">
             <i class="bi bi-question-circle"></i>
           </a>
           <!-- Single Frigorificados summary card, next to the help icon -->
           <div id="summaryFrigorContainer" class="summary-card ms-3">
-            <span class="summary-label">Disp. + Comp. Frigorificados</span>
+            <span class="summary-label">Disp. + Comp. Frigorificados</span>
             <span class="summary-value">0,00 KG</span>
           </div>
         </div>
         <span id="lastUpdateInfo"></span>
-      </div>      <!-- Card Grid (Item Cards will be injected here) -->
+      </div>
+
+      <!-- Card Grid (Item Cards will be injected here) -->
       <div class="card-grid" id="licitacaoCards"></div>
     </section>
   </div>
@@ -79,7 +88,9 @@
     <button id="btnNewLicitacao">Adicionar nova licitação</button>
   </div>
   
-  <!-- Modal: Import Loading (spinner during import) -->
+  <!-- Modals -->
+
+  <!-- Import Loading -->
   <div class="modal-overlay" id="importLoadingModal">
     <div class="modal">
       <h2>Importando...</h2>
@@ -87,60 +98,58 @@
     </div>
   </div>
   
-  <!-- Modal: Nova Licitação (existing) -->
+  <!-- Nova Licitação -->
   <div class="modal-overlay" id="modalLicitacao">
     <div class="modal">
       <h2>Nova Licitação</h2>
       <form id="formLicitacao">
         <input type="text" name="numeroProcesso" placeholder="Número do Processo" required>
-        <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
-        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
-        <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
-        <input type="text" name="pi" placeholder="Número do PI" required>
-        <input type="date" name="vencimentoAta" required>
-        <input type="text" name="status" placeholder="Status da licitação" required>
-        <!-- Licitação's own balance -->
-        <input type="number" name="balance" placeholder="Saldo da licitação" required>
+        <input type="text" name="nomeEmpresa"     placeholder="Nome da empresa"     required>
+        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa"  required>
+        <input type="text" name="itemSolicitado"  placeholder="Item solicitado"      required>
+        <input type="text" name="pi"              placeholder="Número do PI"         required>
+        <input type="date" name="vencimentoAta"   required>
+        <input type="text" name="status"          placeholder="Status da licitação"  required>
+        <input type="number" name="balance"       placeholder="Saldo da licitação"   required>
         <label for="selectCategoria">Categoria</label>
         <select id="selectCategoria" name="categoria" required>
           <option value="Frigorificados">Frigorificados</option>
           <option value="Secos">Secos</option>
         </select>
         <input type="number" name="cmm" placeholder="CMM (Consumo Mensal Médio)" step="0.01" required>
-        <button type="submit">Salvar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
       </form>
-      <button class="closeModal" data-modal="modalLicitacao">Fechar</button>
+      <button class="closeModal btn btn-secondary" data-modal="modalLicitacao">Fechar</button>
     </div>
   </div>
   
-  <!-- Modal: Edit Licitação (existing) -->
+  <!-- Edit Licitação -->
   <div class="modal-overlay" id="modalEditLicitacao">
     <div class="modal">
       <h2>Editar Licitação</h2>
       <form id="formEditLicitacao">
         <input type="hidden" name="id">
         <input type="text" name="numeroProcesso" placeholder="Número do Processo" required>
-        <input type="text" name="nomeEmpresa" placeholder="Nome da empresa" required>
-        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa" required>
-        <input type="text" name="itemSolicitado" placeholder="Item solicitado" required>
-        <input type="text" name="pi" placeholder="Número do PI" required>
-        <input type="date" name="vencimentoAta" required>
-        <input type="text" name="status" placeholder="Status da licitação" required>
-        <!-- Do not update balance from the edit form -->
-        <input type="number" name="balance" placeholder="Saldo da licitação" style="display:none;">
+        <input type="text" name="nomeEmpresa"     placeholder="Nome da empresa"     required>
+        <input type="text" name="telefoneEmpresa" placeholder="Telefone da empresa"  required>
+        <input type="text" name="itemSolicitado"  placeholder="Item solicitado"      required>
+        <input type="text" name="pi"              placeholder="Número do PI"         required>
+        <input type="date" name="vencimentoAta"   required>
+        <input type="text" name="status"          placeholder="Status da licitação"  required>
+        <input type="number" name="balance" style="display:none;">
         <label for="categoria">Categoria</label>
         <select name="categoria" required>
           <option value="Frigorificados">Frigorificados</option>
           <option value="Secos">Secos</option>
         </select>
         <input type="number" name="cmm" placeholder="CMM (Consumo Mensal Médio)" step="0.01" required>
-        <button type="submit">Salvar Alterações</button>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
       </form>
-      <button class="closeModal" data-modal="modalEditLicitacao">Fechar</button>
+      <button class="closeModal btn btn-secondary" data-modal="modalEditLicitacao">Fechar</button>
     </div>
   </div>
   
-  <!-- Modal: Comentários (Chat) -->
+  <!-- Comentários -->
   <div class="modal-overlay" id="modalComentarios">
     <div class="modal modal-comentarios">
       <h2>Comentários</h2>
@@ -148,13 +157,13 @@
       <form id="formComentarios" class="chat-input-form">
         <input type="hidden" name="licitacaoId">
         <input type="text" name="newMessage" placeholder="Digite uma mensagem..." required>
-        <button type="submit">Enviar</button>
+        <button type="submit" class="btn btn-primary">Enviar</button>
       </form>
-      <button class="closeModal" data-modal="modalComentarios">Fechar</button>
+      <button class="closeModal btn btn-secondary" data-modal="modalComentarios">Fechar</button>
     </div>
   </div>
   
-  <!-- Modal: Dashboard de OCs (existing) -->
+  <!-- Dashboard de OCs -->
   <div class="modal-overlay" id="modalVerificarOCs">
     <div class="modal big-dashboard-modal">
       <h2>Dashboard de OCs</h2>
@@ -173,11 +182,11 @@
         </div>
       </div>
       <div class="ocs-list" id="ocDashboardContent"></div>
-      <button class="closeModal" data-modal="modalVerificarOCs">Fechar</button>
+      <button class="closeModal btn btn-secondary" data-modal="modalVerificarOCs">Fechar</button>
     </div>
   </div>
   
-  <!-- New Modal: Adicionar OC Manual for each card -->
+  <!-- Manual OC Modal -->
   <div class="modal-overlay" id="modalNovaOC" style="display:none;">
     <div class="modal">
       <h2>Novo OC Manual</h2>
@@ -192,82 +201,71 @@
         <input type="number" id="novaOC_balance" required>
         <label>Nome da Empresa</label>
         <input type="text" id="novaOC_companyName" required>
-        <!-- Hidden field to store the item name -->
         <input type="hidden" id="novaOC_itemSolicitado">
-        <button type="submit">Salvar</button>
-        <button type="button" id="cancelNovaOCBtn">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <button type="button" id="cancelNovaOCBtn" class="btn btn-secondary">Cancelar</button>
       </form>
     </div>
   </div>
   
-  <!-- Modal: Detalhes da Licitação (existing) -->
+  <!-- Detalhes da Licitação -->
   <div class="modal-overlay" id="modalLicitacaoInfo">
     <div class="modal">
       <h2>Detalhes da Licitação</h2>
       <div id="licitacaoInfoContent"></div>
-      <button class="closeModal" data-modal="modalLicitacaoInfo">Fechar</button>
+      <button class="closeModal btn btn-secondary" data-modal="modalLicitacaoInfo">Fechar</button>
     </div>
   </div>
   
-  <!-- Hidden File Inputs for Import (Estoque & OC) -->
+  <!-- Hidden File Inputs -->
   <input type="file" id="fileEstoque" style="display: none">
-  <input type="file" id="fileOC" style="display: none">
+  <input type="file" id="fileOC"      style="display: none">
   
-  <!-- External JavaScript file -->
+  <!-- External JS -->
   <script src="script.js"></script>
-  
-  <!-- Profile Menu & Auth Logic (same as before) -->
+    
+  <!-- Profile Menu & Auth Logic -->
   <script>
-    const profileButton = document.getElementById('profileButton');
-    const profileDropdown = document.getElementById('profileDropdown');
-    const resetPasswordLink = document.getElementById('resetPasswordLink');
-    const logoutLink = document.getElementById('logoutLink');
-
-    profileButton.addEventListener('click', (e) => {
+    const profileButton       = document.getElementById('profileButton');
+    const profileDropdown     = document.getElementById('profileDropdown');
+    const resetPasswordLink   = document.getElementById('resetPasswordLink');
+    const logoutLink          = document.getElementById('logoutLink');
+    profileButton.addEventListener('click', e => {
       e.stopPropagation();
       profileDropdown.style.display =
-        (profileDropdown.style.display === 'block') ? 'none' : 'block';
+        profileDropdown.style.display === 'block' ? 'none' : 'block';
     });
-
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', e => {
       if (!profileDropdown.contains(e.target) && e.target !== profileButton) {
         profileDropdown.style.display = 'none';
       }
     });
-
-    resetPasswordLink.addEventListener('click', async (e) => {
+    resetPasswordLink.addEventListener('click', async e => {
       e.preventDefault();
       const user = firebase.auth().currentUser;
-      if (!user) {
-        alert("Nenhum usuário logado. Faça login primeiro.");
-        return;
-      }
+      if (!user) return alert("Nenhum usuário logado.");
       try {
         await firebase.auth().sendPasswordResetEmail(user.email);
         alert("Email de redefinição de senha enviado para: " + user.email);
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao enviar redefinição de senha: " + error.message);
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao enviar redefinição de senha: " + err.message);
       }
       profileDropdown.style.display = 'none';
     });
-
-    logoutLink.addEventListener('click', async (e) => {
+    logoutLink.addEventListener('click', async e => {
       e.preventDefault();
       try {
         await firebase.auth().signOut();
         window.location.href = "index.html";
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao fazer logout: " + error.message);
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao fazer logout: " + err.message);
       }
       profileDropdown.style.display = 'none';
     });
-
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) {
-        window.location.href = "index.html";
-      }
+    firebase.auth().onAuthStateChanged(user => {
+      if (!user) window.location.href = "index.html";
     });
   </script>
 </body>
