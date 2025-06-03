@@ -565,19 +565,21 @@ body {
 /* círculo azul com “P” */
 .pericia-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(44, 123, 250, 0.15);
-  color: #3b82f6;
+  top: 7.5px;
+  right: 40px;
+  background: rgba(55, 130, 252, 0.767);
+  color: #ffffff;
   border: 1px solid rgba(59, 130, 246, 0.4);
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  font-size: 0.9rem;
-  line-height: 28px;
-  text-align: center;
-  pointer-events: none; /* optional: makes it non-clickable */
+  border-radius: 70%;
+  width: 20px;
+  height: 20px;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* opcional: torna não clicável */
 }
+
 /* hide all detail-panels by default */
 .usage-detail {
   display: none;
@@ -607,42 +609,50 @@ body {
   margin-top: -30px;
 }
 
-/* the little “!” badge */
-.due-alert {
+/* the red “!” badge */
+.item-card .due-alert {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #f59e0b;       /* amber */
-  color: white;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-weight: bold;
+  top: 6px;    /* tweak as needed */
+  right: 6px;  /* tweak as needed */
   display: flex;
   align-items: center;
   justify-content: center;
+
+  width: 22px;
+  height: 22px;
+  background: #dc8635;
+  color: #fff;
+  border-radius: 50%;
+
+  font-weight: bold;
+  font-size: 14px;
   cursor: default;
+  line-height: normal;
 }
 
-/* the custom tooltip */
-.due-alert::after {
-  content: attr(data-tooltip);
+/* the hidden tooltip container */
+.item-card .due-alert .due-tooltip {
   position: absolute;
   top: 50%;
-  right: 100%;
-  transform: translateY(-50%) translateX(-8px);
-  background: rgba(0,0,0,0.75);
+  right: 110%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.911);
   color: #fff;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-radius: 4px;
   font-size: 12px;
   white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease-in-out;
+  display: none;
+  z-index: 100;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+/* each line inside */
+.item-card .due-alert .due-tooltip .due-tooltip-line {
+  margin: 2px 0;
 }
 
 /* show on hover */
-.due-alert:hover::after {
-  opacity: 1;
+.item-card .due-alert:hover .due-tooltip {
+  display: block;
 }
