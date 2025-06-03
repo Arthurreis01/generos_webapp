@@ -465,19 +465,16 @@ document.getElementById("exportLicitacoesBtn")?.addEventListener("click", () => 
   }
   
 // ----- Render Licitação Cards -----
-function renderLicitacoes() 
-{
+function renderLicitacoes() {
   if (!licitacaoCards) return;
 
   // 0) Update "Disp. + Comp. Frigorificados" summary
   const totalFrigor = groupByItem(licitacoes)
-  .filter(i => (i.categoria || '').toLowerCase() === 'frigorificados')
-  .reduce((sum, i) => sum + (i.balance || 0) + (i.comprometido || 0), 0);
-
+    .filter(i => (i.categoria || '').toLowerCase() === 'frigorificados')
+    .reduce((sum, i) => sum + (i.balance || 0) + (i.comprometido || 0), 0);
   const summaryEl = document.querySelector('#summaryFrigorContainer .summary-value');
-  if (summaryEl) {
-  summaryEl.textContent = `${formatNumber(totalFrigor)} KG`;
-  }
+  if (summaryEl) summaryEl.textContent = `${formatNumber(totalFrigor)} KG`;
+
   // 1) Group by PI and drop items without a name
   let items = groupByItem(licitacoes)
     .filter(item => item.itemSolicitado?.trim());
@@ -494,17 +491,13 @@ function renderLicitacoes()
   // 3) Category & “Em Perícia” radios
   let categoryFilter = 'all';
   filterCategoryRadios.forEach(r => { if (r.checked) categoryFilter = r.value; });
-
   if (categoryFilter === 'pericia') {
-    // only items where at least one OC has qtdePericia > 0
     items = items.filter(i =>
       i.licitations.some(lic =>
         lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
       )
     );
-  }
-  else if (categoryFilter !== 'all') {
-    // frigorificados or secos
+  } else if (categoryFilter !== 'all') {
     items = items.filter(i =>
       (i.categoria || '').toLowerCase() === categoryFilter.toLowerCase()
     );
@@ -522,117 +515,119 @@ function renderLicitacoes()
   licitacaoCards.style.justifyContent = 'flex-start';
 
   // 6) Render each card
-// inside renderLicitacoes(), replace your current items.forEach(...) with this:
+  items.forEach(item => {
+    // --- usage bars ---
+    let usageHTML = '';
+    item.licitations.forEach(lic => {
+      const used  = lic.ocTotal || 0;
+      const total = lic.totalQuantity || 0;
+      let pct = total ? Math.round((used/total)*100) : 0;
+      pct = Math.min(pct, 100);
+      const cls = pct >= 80 ? 'usage-red'
+                : pct >= 50 ? 'usage-orange'
+                : 'usage-green';
+      const detailId = `restamInfo_${lic.id}`;
+      usageHTML += `
+        <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
+          <span>${pct}% usado</span>
+          <span>${lic.numeroProcesso}</span>
+          <span>${formatDate(lic.vencimentoAta)}</span>
+        </div>
+        <div id="${detailId}" class="usage-detail" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
+          Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
+          <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
+          <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
+        </div>
+      `;
+    });
 
-items.forEach(item => {
-  // 1) build usage bars
-  let usageHTML = '';
-  item.licitations.forEach(lic => {
-    const used  = lic.ocTotal || 0;
-    const total = lic.totalQuantity || 0;
-    let pct = total ? Math.round((used/total)*100) : 0;
-    pct = Math.min(pct, 100);
-    const cls = pct >= 80 ? 'usage-red'
-              : pct >= 50 ? 'usage-orange'
-              : 'usage-green';
-    const detailId = `restamInfo_${lic.id}`;
-    usageHTML += `
-      <div class="usage-row ${cls}" onclick="toggleLicDetail('${detailId}',event)">
-        <span>${pct}% usado</span>
-        <span>${lic.numeroProcesso}</span>
-        <span>${formatDate(lic.vencimentoAta)}</span>
-      </div>
-      <div id="${detailId}" class="usage-detail" style="display:none; margin-left:1rem; font-size:0.85rem; color:#333;">
-        Restam ${formatNumber(total - used)} KG de ${formatNumber(total)} KG<br>
-        <button onclick="event.stopPropagation(); editSingleLicitacao(${lic.id});">Editar</button>
-        <button onclick="event.stopPropagation(); deleteSingleLicitacao(${lic.id});">Excluir</button>
-      </div>
-    `;
-  });
+    // --- basic stats ---
+    const autonomia    = item.cmm ? Math.round((item.balance/item.cmm)*30) : 'N/A';
+    const dispPlusComp = (item.balance||0) + (item.comprometido||0);
+    const autCob       = item.cmm ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
+    const alertIcon    = (item.cmm && autCob < 30) ? '🚨' : '';
 
-  // 2) compute stats
-  const autonomia    = item.cmm ? Math.round((item.balance/item.cmm)*30) : 'N/A';
-  const dispPlusComp = (item.balance||0) + (item.comprometido||0);
-  const autCob       = item.cmm ? Math.round((dispPlusComp/item.cmm)*30) : 'N/A';
-  const alertIcon    = (item.cmm && autCob < 30) ? '🚨' : '';
+    // --- perícia badge? ---
+    const hasPericia = item.licitations.some(lic =>
+      lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
+    );
 
-  // 3) pericia badge
-  const hasPericia = item.licitations.some(lic =>
-    lic.ocs?.some(oc => (oc.qtdePericia || 0) > 0)
-  );
+    // --- due‐soon alert (≤ 90 days) ---
+    const now = new Date();
+    const dueSoonList = item.licitations
+      .map(lic => {
+        const due = new Date(lic.vencimentoAta);
+        const diffDays = Math.ceil((due - now)/(1000*60*60*24));
+        return { lic, diffDays };
+      })
+      .filter(x => x.diffDays > 0 && x.diffDays <= 90)
+      .sort((a,b) => a.diffDays - b.diffDays);
 
-  // 4) due‐soon alert (≤45 days)
-  const now = new Date();
-  const dueSoonList = item.licitations
-    .map(lic => {
-      const due = new Date(lic.vencimentoAta);
-      const diffDays = Math.ceil((due - now)/(1000*60*60*24));
-      return { lic, diffDays };
-    })
-    .filter(x => x.diffDays > 0 && x.diffDays <= 45)
-    .sort((a,b) => a.diffDays - b.diffDays);
-
-  let dueBadgeHTML = '';
-  if (dueSoonList.length > 0) {
-    const { lic, diffDays } = dueSoonList[0];
-    dueBadgeHTML = `
-    <div class="due-alert"
-         data-tooltip="Licitação ${lic.numeroProcesso}: ${diffDays} dias restantes">
-      !
-    </div>`;
+    let dueBadgeHTML = '';
+    if (dueSoonList.length > 0) {
+      // build multi-line tooltip HTML
+      const tooltipHtml = dueSoonList
+        .map(({lic, diffDays}) =>
+          `<div class="due-tooltip-line">
+             <strong>Lic ${lic.numeroProcesso}:</strong> ${diffDays} dias
+           </div>`
+        ).join('');
+      dueBadgeHTML = `
+        <div class="due-alert">
+          !
+          <div class="due-tooltip">
+            ${tooltipHtml}
+          </div>
+        </div>`;
     }
 
-  // 5) assemble card
-  const card = document.createElement('div');
-  card.className = 'item-card fancy-card';
-  card.style.position = 'relative';
-  card.style.margin   = '10px';
-  card.style.width    = '300px';
-
-  card.innerHTML = `
-    ${dueBadgeHTML}
-    ${hasPericia
-      ? `<button class="pericia-btn" title="Em Perícia">P</button>`
-      : ''}
-    <h2 class="item-name">${item.itemSolicitado}</h2>
-    <div class="lic-usage-list">${usageHTML}</div>
-    <div class="item-stats">
-      <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
-      <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
-      <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
-      <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
-      <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
-      <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
-      <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
-    </div>
-    <div class="card-actions">
-      <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
-        <i class="bi bi-chat-dots"></i>
-        ${item.newCommentCount>0
-          ? `<span class="new-comment-badge">${item.newCommentCount}</span>`
-          : ''}
-      </button>
-      <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
-        <i class="bi bi-bar-chart"></i>
-      </button>
-      <button onclick="openNovaOCModal('${item.pi}','${item.itemSolicitado}')" title="Adicionar OC Manual">
-        <i class="bi bi-plus-square"></i>
-      </button>
-      <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Nova Licitação">
-        <i class="bi bi-plus"></i>
-      </button>
-      <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
-        <i class="bi bi-pencil"></i>
-      </button>
-      <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitações">
-        <i class="bi bi-trash"></i>
-      </button>
-    </div>
-  `;
-
-  licitacaoCards.appendChild(card);
-});
-} 
+    // --- assemble card ---
+    const card = document.createElement('div');
+    card.className = 'item-card fancy-card';
+    card.style.position = 'relative';
+    card.style.margin   = '10px';
+    card.style.width    = '300px';
+    card.innerHTML = `
+      ${dueBadgeHTML}
+      ${hasPericia ? `<button class="pericia-btn" title="Em Perícia">P</button>` : ''}
+      <h2 class="item-name">${item.itemSolicitado}</h2>
+      <div class="lic-usage-list">${usageHTML}</div>
+      <div class="item-stats">
+        <p><strong>Autonomia:</strong> ${alertIcon}${autonomia} dias</p>
+        <p><strong>CMM:</strong> ${formatNumber(item.cmm)}</p>
+        <p><strong>Disp. p/lib:</strong> ${formatNumber(item.balance)} KG</p>
+        <p><strong>Comprometido:</strong> ${formatNumber(item.comprometido)} KG</p>
+        <p><strong>Disp. + comp.:</strong> ${formatNumber(dispPlusComp)} KG</p>
+        <p><strong>Aut. c/ cob.:</strong> ${alertIcon}${autCob} dias</p>
+        <p><strong>Em OC:</strong> ${formatNumber(item.ocTotal)} KG</p>
+      </div>
+      <div class="card-actions">
+        <button class="comments-btn" onclick="openComentariosByItem('${item.pi}')" title="Comentários">
+          <i class="bi bi-chat-dots"></i>
+          ${item.newCommentCount>0
+            ? `<span class="new-comment-badge">${item.newCommentCount}</span>`
+            : ''}
+        </button>
+        <button onclick="verificarOCsByItem('${item.pi}')" title="Dashboard de OCs">
+          <i class="bi bi-bar-chart"></i>
+        </button>
+        <button onclick="openNovaOCModal('${item.pi}','${item.itemSolicitado}')" title="Adicionar OC Manual">
+          <i class="bi bi-plus-square"></i>
+        </button>
+        <button onclick="addNewLicitacaoForPI('${item.pi}')" title="Nova Licitação">
+          <i class="bi bi-plus"></i>
+        </button>
+        <button onclick="editItemByPI('${item.pi}')" title="Editar Licitação">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button onclick="deleteItemByPI('${item.pi}')" title="Excluir Licitações">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    `;
+    licitacaoCards.appendChild(card);
+  });
+}
   // ----- Toggle Detail -----
   window.toggleLicDetail = function(elemId, event) {
     if (event) event.stopPropagation();
@@ -888,7 +883,7 @@ window.openComentariosByItem = function(pi) {
     bubble.innerHTML = `
       <p>${msg.text}</p>
       <span class="chat-time">${formatTime(msg.time)}</span>
-      <button class="delete-comment-btn" onclick="deleteChatMessage('${pi}', ${index})">Delete</button>
+      <button class="delete-comment-btn" onclick="deleteChatMessage('${pi}', ${index})"><i class="bi bi-trash"></i></button>
     `;
     document.getElementById("chatMessages").appendChild(bubble);
   });
@@ -922,51 +917,59 @@ window.deleteChatMessage = async function(pi, index) {
 };
 
 // OC Dashboard Functions
-window.verificarOCsByItem = function(pi) {
-  // 1) Remember which PI is open for exporting later
-  currentExportOCSpi = pi;
+window.verificarOCsByItem = async function(pi) {
+  const db = firebase.firestore();
 
-  // 2) Find all licitações for this PI
-  const group = licitacoes.filter(l => l.pi && l.pi.toUpperCase() === pi.toUpperCase());
-  if (group.length === 0) return;
+  // 1) Fetch the latest licitações for this PI
+  const licSnapshot = await db
+    .collection("licitacoes")
+    .where("pi", "==", pi)
+    .get();
 
-  // 3) Gather every OC entry across that PI
+  if (licSnapshot.empty) return;
+
+  // 2) Gather all OC entries
   const allOCs = [];
-  group.forEach(lic => {
+  licSnapshot.forEach(doc => {
+    const lic = doc.data();
+    const processo = lic.numeroProcesso || "";
     (lic.ocs || []).forEach(oc => {
       allOCs.push({
-        numeroProcesso: lic.numeroProcesso || '',
-        codigo:          oc.codigo,
-        qtdeComprada:    oc.qtdeComprada,
-        qtdeArrecadada:  oc.qtdeArrecadada,
-        qtdePericia:     oc.qtdePericia
+        pi:             pi,
+        numeroProcesso: processo,
+        codigo:         oc.codigo,
+        qtdeComprada:   oc.qtdeComprada  || 0,
+        qtdeArrecadada: oc.qtdeArrecadada || 0,
+        qtdePericia:    oc.qtdePericia    || 0
       });
     });
   });
 
-  // 4) Update the dashboard summary cards
+  // 3) Compute totals
   let totalOC = 0, totalArr = 0, totalPer = 0;
   allOCs.forEach(o => {
-    totalOC += o.qtdeComprada  || 0;
-    totalArr += o.qtdeArrecadada || 0;
-    totalPer += o.qtdePericia    || 0;
+    totalOC += o.qtdeComprada;
+    totalArr += o.qtdeArrecadada;
+    totalPer += o.qtdePericia;
   });
-  document.getElementById("ocTotalValue").textContent      = formatNumber(totalOC) + " KG";
-  document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArr) + " KG";
-  document.getElementById("ocPericiaValue").textContent    = formatNumber(totalPer) + " KG";
 
-  // 5) Build the OC list HTML
+  // 4) Update header cards
+  document.getElementById("ocTotalValue").textContent      = formatNumber(totalOC)  + " KG";
+  document.getElementById("ocArrecadadoValue").textContent = formatNumber(totalArr)  + " KG";
+  document.getElementById("ocPericiaValue").textContent    = formatNumber(totalPer)  + " KG";
+
+  // 5) Render the OC list
   const dashboardDiv = document.getElementById("ocDashboardContent");
-  let html = "";
   if (allOCs.length === 0) {
-    html = `<div class="oc-item">
-              <p>Nenhuma OC cadastrada para ${group[0].numeroProcesso}</p>
-            </div>`;
-  } else {
-    allOCs.sort((a, b) => a.codigo.localeCompare(b.codigo));
-    html = allOCs.map(o => `
+    dashboardDiv.innerHTML = `
       <div class="oc-item">
-        <p><strong>Processo:</strong>
+        <p>Nenhuma OC cadastrada para ${pi}</p>
+      </div>`;
+  } else {
+    allOCs.sort((a,b) => a.codigo.localeCompare(b.codigo));
+    dashboardDiv.innerHTML = allOCs.map(o => `
+      <div class="oc-item">
+        <p><strong>Processo:</strong> 
           <span style="font-weight:700; color:#007bff;">
             ${o.numeroProcesso}
           </span>
@@ -978,28 +981,40 @@ window.verificarOCsByItem = function(pi) {
         <button 
           class="delete-oc-btn" 
           data-pi="${pi}" 
-          data-codigo="${o.codigo}" 
+          data-codigo="${o.codigo}"
           title="Excluir OC">
           <i class="bi bi-trash"></i>
         </button>
       </div>
     `).join("");
   }
-  dashboardDiv.innerHTML = html;
 
-  // 6) Wire up delete buttons
+  // 6) Wire up delete buttons (checking both PI and OC code)
   dashboardDiv.querySelectorAll('.delete-oc-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      const piVal     = btn.getAttribute('data-pi');
       const codigoVal = btn.getAttribute('data-codigo');
-      if (confirm("Tem certeza que deseja excluir esta OC?")) {
-        deleteOC(piVal, codigoVal);
-      }
+      if (!confirm("Tem certeza que deseja excluir esta OC?")) return;
+
+      // Batch‐remove from every matching licitação doc
+      const batch = db.batch();
+      licSnapshot.forEach(doc => {
+        const lic = doc.data();
+        const newOCs = (lic.ocs || []).filter(oc => oc.codigo !== codigoVal);
+        batch.update(doc.ref, {
+          ocs:        newOCs,
+          ocTotal:    newOCs.reduce((sum, o) => sum + (o.qtdeComprada  || 0), 0),
+          ocConsumed: newOCs.reduce((sum, o) => sum + (o.qtdeArrecadada || 0), 0)
+        });
+      });
+      await batch.commit();
+
+      // Refresh the dashboard
+      await window.verificarOCsByItem(pi);
     });
   });
 
-  // 7) Open the OC dashboard modal
+  // 7) Finally, show the modal
   openModal(document.getElementById("modalVerificarOCs"));
 };
 
