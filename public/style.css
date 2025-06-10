@@ -612,18 +612,16 @@ body {
 /* the red “!” badge */
 .item-card .due-alert {
   position: absolute;
-  top: 6px;    /* tweak as needed */
-  right: 6px;  /* tweak as needed */
+  top: 7px;    /* tweak as needed */
+  right: 10px;  /* tweak as needed */
   display: flex;
   align-items: center;
   justify-content: center;
-
   width: 22px;
   height: 22px;
   background: #dc8635;
   color: #fff;
   border-radius: 50%;
-
   font-weight: bold;
   font-size: 14px;
   cursor: default;
