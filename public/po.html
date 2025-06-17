@@ -27,7 +27,7 @@
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
     <div class="container-fluid">
       <!-- App Name -->
-      <a class="navbar-brand" href="#">Centro de Suprimentos</a>
+      <a class="navbar-title" href="#">Centro de Suprimentos</a>
 
       <!-- Centered Table Search -->
       <form class="d-flex mx-auto w-50">
@@ -49,12 +49,12 @@
       <!-- Profile Dropdown -->
       <div class="dropdown">
         <button
-          class="btn btn-link text-white p-0"
-          data-bs-toggle="dropdown"
-        >
-          <i class="bi bi-person-circle fs-4"></i>
+        class="btn btn-link text-white p-0"
+        data-bs-toggle="dropdown"
+      >
+        <i class="bi bi-person-circle fs-4"></i>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end">
+              <ul class="dropdown-menu dropdown-menu-end">
           <li><a class="dropdown-item" href="#">Perfil</a></li>
           <li><a class="dropdown-item" href="#">Sair</a></li>
         </ul>
@@ -71,10 +71,18 @@
     <!-- Month selector + Add OC button -->
     <div class="d-flex justify-content-between align-items-center mb-3">
       <ul class="nav nav-pills">
-        <li class="nav-item"><a class="nav-link active" href="#">April</a></li>
-        <li class="nav-item"><a class="nav-link" href="#">May</a></li>
-        <li class="nav-item"><a class="nav-link" href="#">June</a></li>
-        <!-- adicione os outros meses aqui -->
+        <li class="nav-item"><a class="nav-link" href="#">Janeiro</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Fevereiro</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Março</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Abril</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Maio</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Junho</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Julho</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Agosto</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Setembro</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Outubro</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Novembro</a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Dezembro</a></li>
       </ul>
       <div>
         <button id="btnExportExcel" class="btn btn-export btn-lg me-2">
@@ -86,19 +94,7 @@
       </div>
     </div>
 
-    <!-- Keep only the date-range picker here -->
-    <div class="row g-3 mb-4">
-      <div class="col-md-6">
-        <input
-          type="text"
-          id="dateRange"
-          class="form-control form-control-sm"
-          placeholder="Selecione o intervalo de datas"
-          readonly
-          onchange="applyTableFilter()"
-        >
-      </div>
-    </div>
+
 
     <!-- Data table -->
     <div class="table-responsive">
@@ -106,22 +102,73 @@
         class="table table-hover table-sm align-middle"
         id="agendaTable"
       >
-        <thead>
-          <tr>
-            <th>Data Prevista <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>Item Solicitado <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>QTD (KG) <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>OC <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>Fornecedor <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>Nota Fiscal <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>OBS <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>Status <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>Data Receb. <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th>Data Perícia <button class="sort-btn"><i class="bi bi-arrow-down-up"></i></button></th>
-            <th class="text-center">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="agendaTbody">
+      <thead>
+        <tr>
+          <!-- Data Prevista (sortable) -->
+          <th>
+            Data Prevista
+            <button class="sort-btn" data-field="dataPrevista">
+              <i class="bi bi-arrow-down-up"></i>
+            </button>
+          </th>
+      
+          <!-- Item Solicitado (sortable) -->
+          <th>
+            Item Solicitado
+            <button class="sort-btn" data-field="itemSolicitado">
+              <i class="bi bi-arrow-down-up"></i>
+            </button>
+          </th>
+      
+          <!-- QTD (KG) – no sort, so no button -->
+          <th>QTD (KG)</th>
+      
+          <!-- OC (sortable) -->
+          <th>
+            OC
+            <button class="sort-btn" data-field="oc">
+              <i class="bi bi-arrow-down-up"></i>
+            </button>
+          </th>
+      
+          <!-- Fornecedor – leave unsortable -->
+          <th>Fornecedor</th>
+      
+          <!-- Nota Fiscal – leave unsortable -->
+          <th>Nota Fiscal</th>
+      
+          <!-- OBS – leave unsortable -->
+          <th>OBS</th>
+      
+          <!-- Status (sortable) -->
+          <th>
+            Status
+            <button class="sort-btn" data-field="status">
+              <i class="bi bi-arrow-down-up"></i>
+            </button>
+          </th>
+      
+          <!-- Data Receb. (sortable) -->
+          <th>
+            Data Receb.
+            <button class="sort-btn" data-field="dataRecebimento">
+              <i class="bi bi-arrow-down-up"></i>
+            </button>
+          </th>
+      
+          <!-- Data Perícia (sortable) -->
+          <th>
+            Data Perícia
+            <button class="sort-btn" data-field="dataPericia">
+              <i class="bi bi-arrow-down-up"></i>
+            </button>
+          </th>
+      
+          <!-- Ações – no sort -->
+          <th class="text-center">Ações</th>
+        </tr>
+      </thead>
+              <tbody id="agendaTbody">
           <!-- preenchido via JS -->
         </tbody>
       </table>
