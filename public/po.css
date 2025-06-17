@@ -40,15 +40,30 @@ body {
   background-color: #004080 !important;
 }
 .navbar-brand,
-.navbar .form-control,
-.navbar .btn-link {
+.navbar-title {
+  color: #ffffff !important;
+}
+/* Remove the old "all btn-link dark" rule. */
+/* .navbar .btn-link {
+  color: #161616 !important;
+} */
+
+/* Instead, force only those with text-white to be white */
+.navbar .btn-link.text-white {
   color: #fff !important;
 }
-.navbar .form-control {
-  width: 300px;
+
+/* If you need any .btn-link that is NOT text-white to remain dark: */
+.navbar .btn-link:not(.text-white) {
+  color: #161616 !important;
 }
-.navbar .btn-link:hover {
+.navbar .btn-link:not(.text-white):hover {
   color: #e0e0e0 !important;
+}
+
+.navbar .form-control {
+  color: #161616 !important;
+  width: 300px;
 }
 
 /* ============ Pills de Meses ============ */
@@ -64,7 +79,6 @@ body {
   font-size: 1rem;
   padding: 0.5rem 1rem;
 }
-
 .btn-success {
   background-color: #198754 !important;
   border-color:    #198754 !important;
@@ -147,6 +161,17 @@ body {
   color: var(--icon-pericia) !important;
 }
 
+/* ============ “Confirmar” Button (Green Check) Styling ============ */
+.btn-sm.btn-success .bi-check-circle {
+  color: #198754 !important;
+  font-size: 1.2rem;
+}
+/* (Opcional) leve fundo verde claro atrás do ícone de "Confirmar" */
+.btn-sm.btn-success {
+  background-color: rgba(25, 135, 84, 0.1) !important;
+  border-radius: 0.25rem;
+}
+
 /* ============ Modal OBS Specific Styling ============ */
 #obsModal .modal-dialog {
   max-width: 600px;
@@ -161,10 +186,11 @@ body {
 
 /* ============ Export Button Styling ============ */
 .btn-export {
-  background-color: #0dcaf0 !important;
-  border-color: #0dcaf0 !important;
+  background-color: #198754 !important;
+  border-color: #198754 !important;
   color: #fff !important;
   transition: background-color 0.2s, border-color 0.2s;
+  padding: 3px;
 }
 .btn-export:hover {
   background-color: #31d2f2 !important;
