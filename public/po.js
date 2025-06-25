@@ -560,35 +560,30 @@ if (formRecebimento) {
     };
 
     try {
+      // 1) Atualiza o agendamento no Firestore
       await db.collection("pos").doc(selectedAgendamento).update(updateObj);
       agendamentos = agendamentos.map(ag =>
         ag.docId === selectedAgendamento ? { ...ag, ...updateObj } : ag
       );
       renderAgendamentos();
 
-      // Atualizar “licitacoes” local (script.js), se existir
+      // 2) Persiste o incremento de qtdePericia na coleção "licitacoes"
       const updatedAg = agendamentos.find(ag => ag.docId === selectedAgendamento);
-      if (updatedAg && updatedAg.pi && Array.isArray(window.licitacoes)) {
-        window.licitacoes.forEach(lic => {
-          if (lic.pi === updatedAg.pi && Array.isArray(lic.ocs)) {
-            lic.ocs = lic.ocs.map(oc => {
-              if (oc.codigo === updatedAg.oc) {
-                return { ...oc, qtdePericia: (oc.qtdePericia || 0) + qtdRec };
-              }
-              return oc;
-            });
-          }
-        });
+      if (updatedAg && updatedAg.pi) {
+        await updateOCForRecebimento(updatedAg.pi, updatedAg.oc, qtdRec);
+        // 3) Reexibe o dashboard de OCs com o novo valor
         if (typeof window.verificarOCsByItem === "function") {
           window.verificarOCsByItem(updatedAg.pi);
         }
       }
 
+      // 4) Fecha o modal
       selectedAgendamento = null;
       const modalEl = document.getElementById("recebimentoModal");
       if (modalEl) {
         bootstrap.Modal.getInstance(modalEl)?.hide();
       }
+
     } catch (err) {
       console.error("Erro ao atualizar recebimento:", err);
       alert("Erro ao atualizar recebimento.");
